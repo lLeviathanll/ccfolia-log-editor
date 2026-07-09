@@ -351,7 +351,6 @@ function parseCcfoliaHtml(htmlText) {
 
 // ── 초기화 ────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  loadSettings();
   $('header-version').textContent = VERSION + ' by 파멸의씨푸드';
   setupNavTabs();
   setupLoadPanel();
@@ -1010,13 +1009,7 @@ ${rows}
 
 // ── 설정 (localStorage) ───────────────────────────────────────────
 
-function loadSettings() {
-  try {
-    const raw = localStorage.getItem('ccfolia_settings');
-    if (raw) Object.assign(S.settings, JSON.parse(raw));
-  } catch {}
-  $('out-theme').value = S.settings.theme || 'dark';
-}
+
 
 // ── 유틸 ──────────────────────────────────────────────────────────
 function setStatus(id, type, msg) { const el=$(id); el.className=`status ${type}`; el.textContent=msg; }
