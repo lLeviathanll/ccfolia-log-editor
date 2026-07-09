@@ -249,7 +249,7 @@ input[type="color"] { width:30px; height:24px; border:1px solid var(--border); b
         <input id="out-title" type="text" class="field-input" placeholder="시나리오 제목 등" />
         <label class="field-label">테마</label>
         <select id="out-theme" class="field-input">
-          <option value="dark">기본</option>
+          <option value="dark" selected>기본</option>
           <option value="default">라이트</option>
           <option value="novel">소설풍</option>
           <option value="minimal">미니멀</option>
@@ -1015,7 +1015,7 @@ function loadSettings() {
     const raw = localStorage.getItem('ccfolia_settings');
     if (raw) Object.assign(S.settings, JSON.parse(raw));
   } catch {}
-  $('out-theme').value = S.settings.theme;
+  $('out-theme').value = S.settings.theme || 'dark';
 }
 
 // ── 유틸 ──────────────────────────────────────────────────────────
