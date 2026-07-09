@@ -19,7 +19,1066 @@ html,body { width:100%; height:100%; background:var(--bg); color:var(--text); fo
 #app { display:flex; flex-direction:column; height:100vh; }
 
 /* ── 헤더 ── */
-header { display:flex; align-items:center; justify-content:space-between; padding:9px 16px; background:var(--bg1); border-bottom:1px solid var(--border); flex-shrink:0; }
+header { display:flex; align-items:center; justify-content:space-between; padding:9px 16px; background:var(--bg1); border-bottom:1px solid var(--border); flex-shrink:0; }<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CCFOLIA Log Editor</title>
+<style>
+/* ── 리셋 & 변수 ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:#181818; --bg1:#222; --bg2:#2a2a2a; --bg3:#333;
+  --border:#3a3a3a; --border2:#484848;
+  --text:#e4e4e4; --text2:#999; --text3:#666;
+  --accent:#b0b0b0; --radius:5px; --radius-sm:3px;
+  --f:-apple-system,BlinkMacSystemFont,'Segoe UI','Malgun Gothic',sans-serif;
+  --trans:0.12s ease;
+}
+html,body { width:100%; height:100%; background:var(--bg); color:var(--text); font-family:var(--f); font-size:15px; line-height:1.5; overflow:hidden; }
+#app { display:flex; flex-direction:column; height:100vh; }
+
+/* ── 헤더 ── */
+header { display:flex; align-items:flex-end; justify-content:space-between; padding:9px 16px; background:var(--bg1); border-bottom:1px solid var(--border); flex-shrink:0; }
+.header-title { font-size:15px; font-weight:600; color:var(--accent); letter-spacing:.02em; }
+
+/* ── 탭 네비 ── */
+#nav-tabs { display:flex; background:var(--bg1); border-bottom:1px solid var(--border); flex-shrink:0; }
+.nav-tab { padding:8px 24px; background:none; border:none; border-bottom:2px solid transparent; color:var(--text2); font-size:14px; cursor:pointer; transition:var(--trans); }
+.nav-tab:hover { color:var(--text); background:var(--bg2); }
+.nav-tab.active { color:var(--text); border-bottom-color:var(--accent); }
+
+/* ── 패널 ── */
+.panel { display:none; flex-direction:column; flex:1; overflow-y:auto; padding:20px 24px; gap:14px; }
+.panel.active { display:flex; }
+
+/* ── 드롭존 ── */
+.drop-zone { display:flex; flex-direction:column; align-items:center; gap:8px; border:1.5px dashed var(--border2); border-radius:var(--radius); padding:40px 20px; text-align:center; transition:var(--trans); }
+.drop-zone.drag-over { border-color:var(--accent); background:var(--bg2); }
+.drop-icon { font-size:38px; }
+.drop-primary { font-size:15px; color:var(--text); }
+.drop-hint { font-size:13px; color:var(--text3); }
+
+/* ── 상태 ── */
+.status { font-size:13.5px; min-height:16px; white-space:pre-wrap; }
+.status.ok  { color:#7ecfa0; } .status.err { color:#cf7e7e; } .status.info { color:#7eb8cf; }
+
+/* ── 카드 ── */
+.card { background:var(--bg1); border:1px solid var(--border); border-radius:var(--radius); padding:16px; display:flex; flex-direction:column; gap:10px; }
+.card.hidden { display:none !important; }
+
+/* ── 요약 ── */
+.summary-row { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.summary-item { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px; text-align:center; }
+.summary-num { font-size:24px; font-weight:700; color:var(--accent); }
+.summary-label { font-size:12px; color:var(--text3); margin-top:2px; }
+
+/* ── 라벨 ── */
+.field-label { font-size:12.5px; font-weight:600; text-transform:uppercase; letter-spacing:.07em; color:var(--text3); }
+
+/* ── 칩 ── */
+.chip-list { display:flex; flex-wrap:wrap; gap:6px; }
+.chip { padding:4px 14px; border-radius:20px; font-size:14px; cursor:pointer; border:1px solid var(--border2); background:var(--bg2); color:var(--text2); transition:var(--trans); }
+.chip.on { background:var(--bg3); color:var(--text); border-color:var(--accent); }
+
+/* ── 버튼 ── */
+.btn-primary { display:inline-flex; align-items:center; justify-content:center; gap:5px; padding:8px 18px; background:#484848; color:var(--text); border:none; border-radius:var(--radius-sm); font-size:14.5px; font-weight:500; cursor:pointer; transition:var(--trans); }
+.btn-primary:hover { background:#555; }
+.btn-primary.full { width:100%; }
+.btn-secondary { display:inline-flex; align-items:center; justify-content:center; gap:5px; padding:7px 18px; background:transparent; color:var(--text2); border:1px solid var(--border2); border-radius:var(--radius-sm); font-size:14.5px; cursor:pointer; transition:var(--trans); }
+.btn-secondary:hover { background:var(--bg2); color:var(--text); }
+.btn-secondary.full { width:100%; }
+.btn-sm { padding:5px 12px; background:var(--bg2); color:var(--text2); border:1px solid var(--border); border-radius:var(--radius-sm); font-size:13.5px; cursor:pointer; transition:var(--trans); }
+.btn-sm:hover { background:var(--bg3); color:var(--text); }
+.icon-btn { background:none; border:none; color:var(--text2); cursor:pointer; padding:4px 6px; font-size:17px; border-radius:var(--radius-sm); transition:var(--trans); }
+.icon-btn:hover { color:var(--text); background:var(--bg2); }
+.mt { margin-top:6px; }
+
+/* ── 툴바 ── */
+.toolbar { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+.search-box { flex:1; max-width:320px; background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:6px 10px; color:var(--text); font-size:14.5px; outline:none; }
+.search-box:focus { border-color:var(--border2); }
+.count-label { font-size:13px; color:var(--text3); margin-left:auto; }
+
+/* ── 로그 리스트 ── */
+.log-list { display:flex; flex-direction:column; gap:6px; overflow-y:auto; flex:1; }
+.empty-msg { font-size:14.5px; color:var(--text3); text-align:center; padding:32px; }
+
+/* ── 로그 아이템 ── */
+.log-item { background:var(--bg1); border:1px solid var(--border); border-radius:var(--radius); padding:10px 14px; }
+.log-item.muted { opacity:.4; }
+.log-head { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+.log-speaker { font-size:14.5px; font-weight:600; }
+.log-tab-chip { font-size:12.5px; padding:2px 8px; border-radius:10px; background:var(--bg2); color:var(--text2); border:1px solid var(--border); }
+.log-actions { margin-left:auto; display:flex; gap:4px; opacity:0; transition:var(--trans); }
+.log-item:hover .log-actions { opacity:1; }
+.log-body { font-size:14.5px; color:var(--text); line-height:1.65; white-space:pre-wrap; word-break:break-all; }
+.log-inline { font-size:14px; color:#707070; line-height:1.6; flex:1; min-width:0; word-break:break-all; }
+.log-edit-area { display:none; flex-direction:column; gap:5px; margin-top:8px; }
+.log-edit-area.open { display:flex; }
+.log-textarea { width:100%; background:var(--bg2); border:1px solid var(--border2); border-radius:var(--radius-sm); padding:6px 8px; color:var(--text); font-size:14.5px; line-height:1.6; resize:vertical; min-height:56px; outline:none; font-family:var(--f); }
+.log-edit-btns { display:flex; gap:5px; justify-content:flex-end; }
+
+/* ── 미리보기 ── */
+#preview-wrap { flex:1; border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; min-height:0; }
+#preview-frame { width:100%; height:100%; border:none; background:#fff; }
+
+/* ── 출력 패널 리사이즈 핸들 ── */
+.resize-handle {
+  width: 5px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: var(--border);
+  transition: background 0.15s;
+  position: relative;
+  z-index: 1;
+}
+.resize-handle:hover, .resize-handle.dragging { background: var(--accent); }
+
+/* ── 출력 패널 (좌우 분할) ── */
+.panel-export-split {
+  display: none;
+  flex-direction: row !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  overflow: hidden !important;
+}
+.panel-export-split.active { display: flex; }
+
+.export-left {
+  width: 260px;
+  min-width: 220px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow-y: auto;
+  padding: 16px 16px;
+  border-right: 1px solid var(--border);
+  scrollbar-width: thin;
+  scrollbar-color: #444 transparent;
+}
+.export-left::-webkit-scrollbar { width: 5px; }
+.export-left::-webkit-scrollbar-track { background: transparent; }
+.export-left::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+.export-left::-webkit-scrollbar-thumb:hover { background: #666; }
+.export-right {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--bg1);
+}
+#preview-wrap { flex:1; overflow:hidden; min-height:0; }
+#preview-frame { width:100%; height:100%; border:none; background:#fff; }
+.form-block { display:flex; flex-direction:column; gap:8px; }
+.field-input { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:7px 10px; color:var(--text); font-size:14.5px; outline:none; width:100%; }
+.field-input:focus { border-color:var(--border2); }
+.check-group { display:flex; flex-direction:column; gap:6px; }
+.check-group label { display:flex; align-items:center; gap:7px; font-size:14.5px; cursor:pointer; }
+.check-group input[type=checkbox] { accent-color:var(--accent); }
+
+/* ── 캐릭터/탭 색상 ── */
+.speaker-list { display:flex; flex-direction:column; gap:6px; }
+.speaker-row { display:flex; align-items:center; gap:9px; }
+.speaker-name { flex:1; font-size:14.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.color-swatch { width:22px; height:22px; border-radius:4px; border:1px solid var(--border2); flex-shrink:0; cursor:pointer; }
+.hex-input { width:74px; background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:3px 6px; color:var(--text); font-size:12px; outline:none; font-family:monospace; flex-shrink:0; }
+.hex-input:focus { border-color:var(--accent); }
+.hex-input:disabled, .color-swatch.disabled { opacity:0.3; pointer-events:none; }
+input[type="color"] { width:30px; height:24px; border:1px solid var(--border); border-radius:var(--radius-sm); background:none; cursor:pointer; padding:1px; flex-shrink:0; }
+.hint-text { font-size:13px; color:var(--text3); font-style:italic; }
+.sel-sm { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:5px 8px; color:var(--text); font-size:14px; outline:none; }
+
+/* ── 캐릭터 이미지 URL ── */
+.speaker-img-row { display:flex; flex-direction:column; gap:4px; padding-bottom:8px; border-bottom:1px solid var(--border); }
+.speaker-img-row:last-child { border-bottom:none; padding-bottom:0; }
+.speaker-img-label { display:flex; align-items:center; gap:7px; }
+.speaker-img-thumb { width:44px; height:44px; border-radius:4px; object-fit:cover; border:1px solid var(--border2); flex-shrink:0; background:var(--bg3); display:none; }
+.speaker-img-thumb.show { display:block; }
+.speaker-img-name { font-size:14px; color:var(--text); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.speaker-img-input { width:100%; background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:5px 8px; color:var(--text2); font-size:13px; outline:none; }
+.speaker-img-input:focus { border-color:var(--border2); color:var(--text); }
+
+/* ── 설정 오버레이 ── */
+.overlay { position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:200; display:flex; align-items:center; justify-content:center; }
+.overlay.hidden { display:none; }
+.overlay-inner { background:var(--bg1); border:1px solid var(--border); border-radius:8px; width:340px; overflow:hidden; }
+.overlay-header { display:flex; justify-content:space-between; align-items:center; padding:14px 16px; border-bottom:1px solid var(--border); font-weight:600; font-size:15px; }
+.overlay-body { padding:16px; display:flex; flex-direction:column; gap:10px; }
+</style>
+</head>
+  
+  
+<body>
+<div id="app">
+
+  <header>
+    <span class="header-title">📜 CCFOLIA Log Editor</span>
+    <span style="font-size:12px;color:var(--text3);opacity:0.85;margin-left:8px;margin-right:auto">1.0.1 by 파멸의씨푸드</span>
+    <button id="btn-settings" class="icon-btn" title="설정">⚙</button>
+  </header>
+
+  <nav id="nav-tabs">
+    <button class="nav-tab active" data-target="panel-load">불러오기</button>
+    <button class="nav-tab" data-target="panel-edit">편집</button>
+    <button class="nav-tab" data-target="panel-export">출력</button>
+  </nav>
+
+  <!-- 불러오기 -->
+  <section id="panel-load" class="panel active">
+    <label id="drop-zone" class="drop-zone">
+      <input id="file-input" type="file" accept=".html,.htm" hidden />
+      <span class="drop-icon">📂</span>
+      <span class="drop-primary">클릭하거나 파일을 드래그하세요</span>
+      <span class="drop-hint">ccfolia에서 내보낸 .html 로그 파일 혹은 이 에디터에서 수정한 .html 로그 파일</span>
+    </label>
+    <div id="load-status" class="status"></div>
+    <div id="log-info" class="card hidden">
+      <div id="summary-row" class="summary-row"></div>
+      <div id="tab-chips" class="chip-list" style="display:none"></div>
+      <button id="btn-go-edit" class="btn-primary full mt">불러오기 완료 →</button>
+    </div>
+  </section>
+
+  <!-- 편집 -->
+  <section id="panel-edit" class="panel">
+    <div class="toolbar">
+      <input id="search-box" type="text" placeholder="검색…" class="search-box" />
+      <button id="btn-search-clear" class="icon-btn">✕</button>
+      <span id="edit-count" class="count-label"></span>
+    </div>
+    <div id="log-list" class="log-list">
+      <p class="empty-msg">로그를 먼저 불러오세요.</p>
+    </div>
+  </section>
+
+  <!-- 출력 -->
+  <section id="panel-export" class="panel panel-export-split">
+    <!-- 좌: 설정 폼 -->
+    <div class="export-left" id="export-left">
+      <div class="form-block">
+        <label class="field-label">타이틀</label>
+        <input id="out-title" type="text" class="field-input" placeholder="시나리오 제목 등" />
+        <label class="field-label">테마</label>
+        <select id="out-theme" class="field-input">
+          <option value="dark">기본</option>
+          <option value="default">라이트</option>
+          <option value="novel">소설풍</option>
+          <option value="minimal">미니멀</option>
+        </select>
+        <label class="field-label">출력할 탭 선택</label>
+        <div id="out-tab-chips" class="chip-list">
+          <span class="hint-text">로그를 불러오면 표시됩니다.</span>
+        </div>
+        <label class="field-label">옵션</label>
+        <div class="check-group">
+          <label><input type="checkbox" id="opt-tab" checked /> 탭 이름 표시</label>
+          <label><input type="checkbox" id="opt-img" checked /> 캐릭터 이미지 표시</label>
+        </div>
+        <button id="btn-download" class="btn-primary full mt">⬇ HTML 다운로드</button>
+        <button id="btn-copy-html" class="btn-secondary full mt">📋 HTML 복사</button>
+      </div>
+      <div class="form-block" style="margin-top:16px">
+        <label class="field-label">캐릭터 색상</label>
+        <div id="speaker-colors" class="speaker-list">
+          <span class="hint-text">로그를 불러오면 표시됩니다.</span>
+        </div>
+        <label class="field-label" style="margin-top:12px">탭 배경색</label>
+        <div id="tab-bg-colors" class="speaker-list">
+          <span class="hint-text">로그를 불러오면 표시됩니다.</span>
+        </div>
+        <label class="field-label" style="margin-top:12px">캐릭터 이미지 URL</label>
+        <div id="speaker-images" class="speaker-list">
+          <span class="hint-text">로그를 불러오면 표시됩니다.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 우: 미리보기 고정 -->
+    <div class="resize-handle" id="resize-handle"></div>
+    <div class="export-right">
+      <div class="preview-header">
+        <span class="field-label" style="font-size:13px">미리보기</span>
+        <button id="btn-refresh-preview" class="btn-sm">🔄 갱신</button>
+      </div>
+      <div id="preview-wrap">
+        <iframe id="preview-frame" sandbox="allow-same-origin"></iframe>
+      </div>
+    </div>
+  </section>
+
+  <!-- 설정 -->
+  <div id="overlay-settings" class="overlay hidden">
+    <div class="overlay-inner">
+      <div class="overlay-header">
+        <span>설정</span>
+        <button id="btn-close-settings" class="icon-btn">✕</button>
+      </div>
+      <div class="overlay-body">
+        <label class="field-label">기본 테마</label>
+        <select id="setting-theme" class="field-input">
+          <option value="dark">기본</option>
+          <option value="default">라이트</option>
+          <option value="novel">소설풍</option>
+          <option value="minimal">미니멀</option>
+        </select>
+        <button id="btn-save-settings" class="btn-primary full mt">저장</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- #app -->
+
+<script>
+'use strict';
+
+// ── 상태 ──────────────────────────────────────────────────────────
+const S = {
+  entries: [], filtered: [], edited: [],
+  activeTabs: new Set(),
+  outputTabs: new Set(),
+  speakerColors: {}, speakerColorsEnabled: {}, tabBgColors: {}, tabBgColorsEnabled: {}, tabBgColorsCustom: {}, speakerImages: {},
+  settings: { theme: 'dark' }
+};
+
+// ── DOM 헬퍼 ──────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '')
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+  .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+// ── ccfolia HTML 파서 ─────────────────────────────────────────────
+// 구조: <p style="color:#xxx;"><span> [tab]</span><span>캐릭터</span> :<span>메시지</span></p>
+function parseCcfoliaHtml(htmlText) {
+  const doc = new DOMParser().parseFromString(htmlText, 'text/html');
+  const entries = [];
+  let id = 0;
+  doc.querySelectorAll('body > p[style]').forEach(p => {
+    const spans = p.querySelectorAll('span');
+    if (spans.length < 3) return;
+
+    const tabMatch = spans[0].textContent.trim().match(/\[([^\]]+)\]/);
+    const tab = tabMatch ? tabMatch[1] : 'other';
+    const name = spans[1].textContent.trim();
+
+    const tmp = document.createElement('div');
+    tmp.innerHTML = spans[2].innerHTML.replace(/<br\s*\/?>/gi, '\n');
+    const message = tmp.textContent.trim();
+    if (!message) return;
+
+    const cm = p.getAttribute('style')?.match(/color\s*:\s*(#[0-9a-fA-F]{3,8}|[a-z]+)/i);
+    const color = cm ? cm[1] : '#aaaaaa';
+
+    const key = name + '' + color;
+    entries.push({ id: id++, tab, name, color, key, message, hidden: false });
+  });
+  return entries;
+}
+
+// ── 초기화 ────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  loadSettings();
+  setupNavTabs();
+  setupLoadPanel();
+  setupEditPanel();
+  setupPreviewPanel();
+  setupExportPanel();
+  setupSettings();
+});
+
+// ── 탭 네비게이션 ─────────────────────────────────────────────────
+function setupNavTabs() {
+  document.querySelectorAll('.nav-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      $(btn.dataset.target).classList.add('active');
+      if (btn.dataset.target === 'panel-export') {
+        renderOutTabChips();
+        renderSpeakerColors();
+        renderTabBgColors();
+        renderSpeakerImages();
+        doRefreshPreview();
+      }
+    });
+  });
+}
+
+// ── 불러오기 패널 ─────────────────────────────────────────────────
+function setupLoadPanel() {
+  // 파일 input (클릭)
+  $('file-input').addEventListener('change', e => {
+    const f = e.target.files[0];
+    if (f) readFile(f);
+    e.target.value = ''; // 같은 파일 재선택 허용
+  });
+
+  // 드래그 앤 드롭
+  const zone = $('drop-zone');
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', e => { if (!zone.contains(e.relatedTarget)) zone.classList.remove('drag-over'); });
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f) readFile(f);
+  });
+
+  $('btn-go-edit').addEventListener('click', applyFilter);
+}
+
+function readFile(file) {
+  setStatus('load-status', 'info', '⏳ 읽는 중…');
+  const reader = new FileReader();
+  reader.onload = e => {
+    const text = e.target.result;
+    // 에디터 출력 HTML이면 복원 시도
+    if (file.name.endsWith('.html') && text.includes('id="ccfolia-editor-data"')) {
+      if (restoreFromEditorHtml(file.name, text)) return;
+    }
+    processText(file.name, text);
+  };
+  reader.onerror = () => setStatus('load-status', 'err', '❌ 파일 읽기 실패');
+  reader.readAsText(file, 'UTF-8');
+}
+
+function restoreFromEditorHtml(filename, text) {
+  try {
+    const match = text.match(/<script[^>]+id="ccfolia-editor-data"[^>]*>([\s\S]*?)<\/script>/);
+    if (!match) return false;
+    const data = JSON.parse(match[1]);
+
+    // 버전별 마이그레이션 (현재는 1.0.1 단일)
+    const version = data.version || '1.0.0';
+
+    // 상태 복원
+    S.entries = data.entries;
+    S.edited  = data.entries.map(e => ({ ...e }));
+    S.filtered = S.edited;
+    S.outputTabs = new Set(data.outputTabs || data.entries.map(e => e.tab));
+    S.activeTabs = new Set(data.entries.map(e => e.tab));
+    S.speakerColors        = data.speakerColors        || {};
+    S.speakerColorsEnabled = data.speakerColorsEnabled || {};
+    S.speakerImages        = data.speakerImages        || {};
+    S.tabBgColors          = data.tabBgColors          || {};
+    S.tabBgColorsEnabled   = data.tabBgColorsEnabled   || {};
+    S.tabBgColorsCustom    = data.tabBgColorsCustom    || {};
+
+    // 출력 설정 복원
+    if (data.title)   $('out-title').value  = data.title;
+    if (data.theme)   $('out-theme').value  = data.theme;
+    if (data.showTab !== undefined) $('opt-tab').checked = data.showTab;
+    if (data.showImg !== undefined) $('opt-img').checked = data.showImg;
+
+    // 요약 업데이트
+    const tabs = [...new Set(S.entries.map(e => e.tab))];
+    const speakers = [...new Set(S.entries.map(e => e.name))];
+    $('summary-row').innerHTML =
+      `<div class="summary-item"><div class="summary-num">${S.entries.length}</div><div class="summary-label">총 로그</div></div>
+       <div class="summary-item"><div class="summary-num">${speakers.length}</div><div class="summary-label">캐릭터</div></div>
+       <div class="summary-item"><div class="summary-num">${tabs.length}</div><div class="summary-label">탭</div></div>`;
+
+    setStatus('load-status', 'ok', `✅ ${filename} — 에디터 데이터 복원 완료 (v${version})`);
+
+    // 출력 탭으로 이동하며 렌더링
+    switchPanel('panel-export');
+    renderOutTabChips();
+    renderSpeakerColors();
+    renderTabBgColors();
+    renderSpeakerImages();
+    doRefreshPreview();
+    return true;
+  } catch(err) {
+    console.warn('restoreFromEditorHtml failed:', err);
+    return false;
+  }
+}
+
+function processText(filename, text) {
+  try {
+    const entries = parseCcfoliaHtml(text);
+    if (!entries.length) {
+      setStatus('load-status', 'err', '❌ 로그를 찾지 못했습니다.\nccfolia에서 내보낸 .html 파일인지 확인해주세요.');
+      return;
+    }
+    S.entries = entries;
+    const tabs = [...new Set(entries.map(e => e.tab))];
+    S.activeTabs = new Set(tabs);
+    S.outputTabs = new Set(tabs);
+    S.speakerColors = {};
+    S.speakerColorsEnabled = {};
+    S.speakerImages = {};
+    entries.forEach(e => { if (!(e.key in S.speakerColors)) { S.speakerColors[e.key] = e.color; S.speakerColorsEnabled[e.key] = false; } });
+    S.tabBgColors = {};
+    tabs.forEach(t => { S.tabBgColors[t] = ''; S.tabBgColorsEnabled[t] = false; S.tabBgColorsCustom[t] = false; });
+
+    // 요약
+    const speakers = [...new Set(entries.map(e => e.name))];
+    $('summary-row').innerHTML =
+      `<div class="summary-item"><div class="summary-num">${entries.length}</div><div class="summary-label">총 로그</div></div>
+       <div class="summary-item"><div class="summary-num">${speakers.length}</div><div class="summary-label">캐릭터</div></div>
+       <div class="summary-item"><div class="summary-num">${tabs.length}</div><div class="summary-label">탭</div></div>`;
+
+    // 탭 칩
+    const TAB_LABEL = { main:'메인', info:'정보', other:'잡담', secret:'비밀' };
+    const chipsEl = $('tab-chips');
+    chipsEl.innerHTML = '';
+    tabs.forEach(tab => {
+      const btn = document.createElement('button');
+      btn.className = 'chip on'; btn.dataset.tab = tab;
+      btn.textContent = TAB_LABEL[tab] ?? tab;
+      btn.addEventListener('click', () => {
+        const on = btn.classList.toggle('on');
+        on ? S.activeTabs.add(tab) : S.activeTabs.delete(tab);
+      });
+      chipsEl.appendChild(btn);
+    });
+
+    $('log-info').classList.remove('hidden');
+    setStatus('load-status', 'ok', `✅ ${filename} — ${entries.length}개 로그 불러오기 완료`);
+  } catch(err) {
+    setStatus('load-status', 'err', `❌ 오류: ${err.message}`);
+  }
+}
+
+function applyFilter() {
+  S.filtered = S.entries.filter(e => S.activeTabs.has(e.tab));
+  S.edited = S.filtered.map(e => ({ ...e }));
+  renderLogList();
+  switchPanel('panel-export');
+  renderOutTabChips();
+  renderSpeakerColors();
+  renderTabBgColors();
+  renderSpeakerImages();
+  doRefreshPreview();
+}
+
+// ── 편집 패널 ─────────────────────────────────────────────────────
+function setupEditPanel() {
+  const sb = $('search-box');
+  sb.addEventListener('input', () => renderLogList(sb.value.trim()));
+  $('btn-search-clear').addEventListener('click', () => { sb.value = ''; renderLogList(); });
+}
+
+function renderLogList(query = '') {
+  const container = $('log-list');
+  if (!S.edited.length) {
+    container.innerHTML = '<p class="empty-msg">로그를 먼저 불러오세요.</p>';
+    $('edit-count').textContent = ''; return;
+  }
+  const list = query
+    ? S.edited.filter(e => e.name.includes(query) || e.message.includes(query))
+    : S.edited;
+  $('edit-count').textContent = `${list.length}개`;
+  container.innerHTML = '';
+  list.forEach(entry => container.appendChild(makeLogItem(entry, S.edited.indexOf(entry))));
+}
+
+function makeLogItem(entry, idx) {
+  const isOther = entry.tab === 'other';
+  const speakerColor = isOther ? '#808080' : (S.speakerColors[entry.name] ?? entry.color);
+  const div = document.createElement('div');
+  div.className = `log-item${entry.hidden ? ' muted' : ''}`;
+
+  if (isOther) {
+    div.innerHTML = `
+      <div class="log-head">
+        <span class="log-inline">
+          <span class="log-speaker-inline">${esc(entry.name)}</span>
+          <span> : </span>
+          <span class="log-body-inline">${esc(entry.message)}</span>
+        </span>
+        <div class="log-actions">
+          <button class="icon-btn" data-a="edit" title="편집">✏️</button>
+          <button class="icon-btn" data-a="hide" title="${entry.hidden?'표시':'숨기기'}">${entry.hidden?'👁':'🚫'}</button>
+          <button class="icon-btn" data-a="del"  title="삭제">🗑</button>
+        </div>
+      </div>
+      <div class="log-edit-area">
+        <textarea class="log-textarea">${esc(entry.message)}</textarea>
+        <div class="log-edit-btns">
+          <button class="btn-sm" data-a="cancel">취소</button>
+          <button class="btn-sm" data-a="save">저장</button>
+        </div>
+      </div>`;
+  } else {
+    div.innerHTML = `
+      <div class="log-head">
+        <span class="log-speaker" style="color:${esc(speakerColor)}">${esc(entry.name)}</span>
+        <span class="log-tab-chip">${esc(entry.tab)}</span>
+        <div class="log-actions">
+          <button class="icon-btn" data-a="edit" title="편집">✏️</button>
+          <button class="icon-btn" data-a="hide" title="${entry.hidden?'표시':'숨기기'}">${entry.hidden?'👁':'🚫'}</button>
+          <button class="icon-btn" data-a="del"  title="삭제">🗑</button>
+        </div>
+      </div>
+      <div class="log-body">${esc(entry.message)}</div>
+      <div class="log-edit-area">
+        <textarea class="log-textarea">${esc(entry.message)}</textarea>
+        <div class="log-edit-btns">
+          <button class="btn-sm" data-a="cancel">취소</button>
+          <button class="btn-sm" data-a="save">저장</button>
+        </div>
+      </div>`;
+  }
+
+  const body     = div.querySelector('.log-body, .log-body-inline');
+  const editArea = div.querySelector('.log-edit-area');
+  const textarea = div.querySelector('.log-textarea');
+
+  div.querySelector('[data-a="edit"]').onclick   = () => editArea.classList.toggle('open');
+  div.querySelector('[data-a="cancel"]').onclick = () => { textarea.value = S.edited[idx].message; editArea.classList.remove('open'); };
+  div.querySelector('[data-a="save"]').onclick   = () => {
+    S.edited[idx].message = textarea.value;
+    if (body) body.textContent = textarea.value;
+    editArea.classList.remove('open');
+  };
+  div.querySelector('[data-a="hide"]').onclick = () => {
+    S.edited[idx].hidden = !S.edited[idx].hidden;
+    renderLogList($('search-box').value.trim());
+  };
+  div.querySelector('[data-a="del"]').onclick = () => {
+    S.edited.splice(idx, 1);
+    renderLogList($('search-box').value.trim());
+  };
+  return div;
+}
+
+// ── 미리보기 (출력 패널 우측 고정) ───────────────────────────────
+function setupPreviewPanel() {
+  $('btn-refresh-preview').addEventListener('click', doRefreshPreview);
+  // 테마·옵션 변경 시 자동 갱신
+  $('out-theme').addEventListener('change', () => {
+    // 체크됐지만 사용자가 직접 바꾸지 않은 탭은 새 테마 카드 색상으로 갱신
+    const themeCard = (THEMES[$('out-theme').value] || THEMES.default).card;
+    Object.keys(S.tabBgColorsEnabled).forEach(tab => {
+      if (S.tabBgColorsEnabled[tab] && !S.tabBgColorsCustom[tab]) S.tabBgColors[tab] = themeCard;
+    });
+    renderTabBgColors();
+    doRefreshPreview();
+  });
+  $('opt-tab').addEventListener('change', doRefreshPreview);
+  $('opt-img').addEventListener('change', doRefreshPreview);
+  // 제목은 Enter 또는 포커스 해제 시에만 갱신
+  $('out-title').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doRefreshPreview(); } });
+  $('out-title').addEventListener('blur', doRefreshPreview);
+}
+let _previewTimer = null;
+function doRefreshPreview() {
+  clearTimeout(_previewTimer);
+  _previewTimer = setTimeout(() => {
+    const html = buildOutputHtml({
+      title: $('out-title').value || 'CCFOLIA LOG',
+      theme: $('out-theme').value,
+      showTab: $('opt-tab').checked,
+      showImg: $('opt-img').checked,
+      entries: S.edited.filter(e => !e.hidden && S.outputTabs.has(e.tab))
+    });
+    const frame = $('preview-frame');
+    const doc = frame.contentDocument;
+    if (doc) {
+      doc.open();
+      doc.write(html);
+      doc.close();
+    } else {
+      frame.srcdoc = html;
+    }
+  }, 0);
+}
+
+// ── 출력 패널 ─────────────────────────────────────────────────────
+function setupExportPanel() {
+  // 사이드바 리사이즈
+  const handle = $('resize-handle');
+  const leftPane = $('export-left');
+  let dragging = false, startX = 0, startW = 0;
+  const previewFrame = $('preview-frame');
+  handle.addEventListener('mousedown', e => {
+    dragging = true; startX = e.clientX; startW = leftPane.offsetWidth;
+    handle.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    previewFrame.style.pointerEvents = 'none'; // iframe 이벤트 차단으로 드래그 성능 향상
+  });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const w = Math.min(480, Math.max(180, startW + e.clientX - startX));
+    leftPane.style.width = w + 'px';
+  });
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    previewFrame.style.pointerEvents = ''; // 차단 해제
+  });
+
+  $('btn-download').addEventListener('click', () => {
+    const html = buildOutputHtml(exportOpts());
+    const name = ($('out-title').value || 'ccfolia-log').replace(/[\\/:*?"<>|]/g,'_');
+    dlFile(html, `${name}.html`, 'text/html;charset=utf-8');
+  });
+
+  $('btn-copy-html').addEventListener('click', async () => {
+    const html = buildOutputHtml(exportOpts());
+    try {
+      await navigator.clipboard.writeText(html);
+      flash($('btn-copy-html'), '✅ 복사됨!', '📋 HTML 복사');
+    } catch {
+      // clipboard API 실패 시 textarea 폴백
+      const ta = document.createElement('textarea');
+      ta.value = html; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      flash($('btn-copy-html'), '✅ 복사됨!', '📋 HTML 복사');
+    }
+  });
+}
+
+function exportOpts() {
+  return { title: $('out-title').value || 'CCFOLIA LOG', theme: $('out-theme').value, showTab: $('opt-tab').checked, showImg: $('opt-img').checked, entries: S.edited.filter(e => !e.hidden && S.outputTabs.has(e.tab)) };
+}
+
+function renderOutTabChips() {
+  const c = $('out-tab-chips');
+  const tabs = [...new Set(S.edited.map(e => e.tab))];
+  if (!tabs.length) { c.innerHTML = '<span class="hint-text">로그를 불러오면 표시됩니다.</span>'; return; }
+  // outputTabs를 현재 edited의 탭으로 동기화 (새로 진입 시)
+  tabs.forEach(t => { if (!S.outputTabs.has(t) && S.outputTabs.size === 0) S.outputTabs.add(t); });
+  c.innerHTML = '';
+  const TAB_LABEL = { main:'메인', info:'정보', other:'잡담', secret:'비밀' };
+  const TAB_ORDER = ['main','info','other'];
+  const priority = tabs.filter(t => TAB_ORDER.includes(t)).sort((a,b) => TAB_ORDER.indexOf(a)-TAB_ORDER.indexOf(b));
+  const rest = tabs.filter(t => !TAB_ORDER.includes(t)).sort((a,b) => a.localeCompare(b,'ko'));
+  const sortedTabs = [...priority, ...rest];
+  sortedTabs.forEach(tab => {
+    const btn = document.createElement('button');
+    btn.className = 'chip' + (S.outputTabs.has(tab) ? ' on' : '');
+    btn.dataset.tab = tab;
+    btn.textContent = TAB_LABEL[tab] ?? tab;
+    btn.addEventListener('click', () => {
+      const on = btn.classList.toggle('on');
+      on ? S.outputTabs.add(tab) : S.outputTabs.delete(tab);
+      doRefreshPreview();
+    });
+    c.appendChild(btn);
+  });
+}
+
+function renderSpeakerColors() {
+  const c = $('speaker-colors');
+  // key = "name::color" 기준으로 중복 제거 후 이름 가나다 정렬
+  const nonOtherKeys = [...new Set(S.edited.filter(e => e.tab !== 'other').map(e => e.key))];
+  nonOtherKeys.sort((a,b) => a.split('')[0].localeCompare(b.split('')[0],'ko'));
+  if (!nonOtherKeys.length) { c.innerHTML = '<span class="hint-text">로그를 불러오면 표시됩니다.</span>'; return; }
+  c.innerHTML = '';
+  const isValidHex = v => /^#[0-9a-fA-F]{6}$/.test(v);
+  // 같은 이름으로 여러 키가 있는지 체크
+  const nameCount = {};
+  nonOtherKeys.forEach(k => { const n=k.split('')[0]; nameCount[n]=(nameCount[n]||0)+1; });
+  nonOtherKeys.forEach(key => {
+    const [name, origColor] = key.split('');
+    const row = document.createElement('div'); row.className = 'speaker-row';
+    const enabled = S.speakerColorsEnabled[key] !== false;
+    const chk = document.createElement('input'); chk.type='checkbox'; chk.checked=enabled;
+    chk.style.cssText='accent-color:var(--accent);margin-right:2px;flex-shrink:0';
+    const initColor = S.speakerColors[key] ?? origColor ?? '#aaaaaa';
+    const swatch = document.createElement('span'); swatch.className='color-swatch'+(enabled?'':' disabled');
+    swatch.style.background = initColor;
+    const hexInp = document.createElement('input'); hexInp.className='hex-input'; hexInp.maxLength=7;
+    hexInp.value = initColor; hexInp.disabled=!enabled; hexInp.placeholder='#aaaaaa';
+    const applyColor = () => {
+      const activeColor = S.speakerColorsEnabled[key] ? (S.speakerColors[key] ?? origColor) : origColor;
+      swatch.style.background = activeColor;
+      document.querySelectorAll('.log-speaker').forEach(el => {
+        const entryEl = el.closest('.log-item');
+        const entryId = entryEl?.dataset.id;
+        const entry = S.edited.find(e => String(e.id)===entryId);
+        if (entry && entry.key===key) el.style.color = activeColor;
+      });
+      doRefreshPreview();
+    };
+    chk.addEventListener('change', () => {
+      hexInp.disabled=!chk.checked;
+      swatch.className='color-swatch'+(chk.checked?'':' disabled');
+      S.speakerColorsEnabled[key]=chk.checked;
+      applyColor();
+    });
+    hexInp.addEventListener('input', () => {
+      let v = hexInp.value.trim();
+      if (!v.startsWith('#')) v = '#'+v;
+      if (isValidHex(v)) { S.speakerColors[key]=v; swatch.style.background=v; applyColor(); }
+    });
+    hexInp.addEventListener('blur', () => {
+      let v = hexInp.value.trim();
+      if (!v.startsWith('#')) v = '#'+v;
+      if (!isValidHex(v)) hexInp.value = S.speakerColors[key] ?? origColor ?? '#aaaaaa';
+      else hexInp.value = v;
+    });
+    const lb = document.createElement('span'); lb.className='speaker-name'; lb.textContent = name;
+    // 같은 이름+다른 색상이 있으면 원본 색 도트 표시
+    if (nameCount[name] > 1) {
+      const dot = document.createElement('span');
+      dot.title = origColor;
+      dot.style.cssText = `display:inline-block;width:10px;height:10px;border-radius:50%;background:${origColor};flex-shrink:0;margin-left:4px;border:1px solid var(--border2)`;
+      row.append(chk, swatch, hexInp, lb, dot);
+    } else {
+      row.append(chk, swatch, hexInp, lb);
+    }
+    c.appendChild(row);
+  });
+}
+
+function renderTabBgColors() {
+  const c = $('tab-bg-colors');
+  const tabs = [...new Set(S.edited.map(e=>e.tab))];
+  if (!tabs.length) { c.innerHTML='<span class="hint-text">로그를 불러오면 표시됩니다.</span>'; return; }
+  c.innerHTML = '';
+  const TAB_LABEL = { main:'메인', info:'정보', other:'잡담', secret:'비밀' };
+  const TAB_ORDER = ['main','info','other'];
+  const priority = tabs.filter(t => TAB_ORDER.includes(t)).sort((a,b) => TAB_ORDER.indexOf(a)-TAB_ORDER.indexOf(b));
+  const rest = tabs.filter(t => !TAB_ORDER.includes(t)).sort((a,b) => a.localeCompare(b,'ko'));
+  const sortedTabs = [...priority, ...rest];
+  sortedTabs.forEach(tab => {
+    const row = document.createElement('div'); row.className='speaker-row';
+    const enabled = !!S.tabBgColorsEnabled[tab];
+    const chk = document.createElement('input'); chk.type='checkbox'; chk.checked=enabled;
+    chk.style.cssText='accent-color:var(--accent);margin-right:2px;flex-shrink:0';
+    const getThemeCard = () => (THEMES[$('out-theme').value] || THEMES.default).card;
+    const initVal = S.tabBgColorsCustom[tab] ? S.tabBgColors[tab] : getThemeCard();
+    const isValidHex = v => /^#[0-9a-fA-F]{6}$/.test(v);
+    const swatch = document.createElement('span'); swatch.className='color-swatch'+(enabled?'':' disabled');
+    swatch.style.background = initVal;
+    const hexInp = document.createElement('input'); hexInp.className='hex-input'; hexInp.maxLength=7;
+    hexInp.value = initVal; hexInp.disabled=!chk.checked; hexInp.placeholder='#000000';
+    chk.addEventListener('change', () => {
+      hexInp.disabled=!chk.checked;
+      swatch.className='color-swatch'+(chk.checked?'':' disabled');
+      S.tabBgColorsEnabled[tab]=chk.checked;
+      if (chk.checked && !S.tabBgColorsCustom[tab]) { const tc=getThemeCard(); hexInp.value=tc; swatch.style.background=tc; S.tabBgColors[tab]=tc; }
+      doRefreshPreview();
+    });
+    hexInp.addEventListener('input', () => {
+      let v = hexInp.value.trim();
+      if (!v.startsWith('#')) v = '#'+v;
+      if (isValidHex(v)) { S.tabBgColors[tab]=v; S.tabBgColorsCustom[tab]=true; swatch.style.background=v; doRefreshPreview(); }
+    });
+    hexInp.addEventListener('blur', () => {
+      let v = hexInp.value.trim();
+      if (!v.startsWith('#')) v = '#'+v;
+      if (!isValidHex(v)) { hexInp.value = S.tabBgColors[tab] || getThemeCard(); }
+      else { hexInp.value = v; }
+    });
+    const lb=document.createElement('span'); lb.className='speaker-name'; lb.textContent=TAB_LABEL[tab]??tab;
+    row.append(chk,swatch,hexInp,lb); c.appendChild(row);
+  });
+}
+
+function renderSpeakerImages() {
+  const c = $('speaker-images');
+  const speakerKeys = [...new Set(S.edited.filter(e => e.tab !== 'other').map(e => e.key))]
+    .sort((a, b) => a.split('')[0].localeCompare(b.split('')[0], 'ko'));
+  if (!speakerKeys.length) { c.innerHTML = '<span class="hint-text">로그를 불러오면 표시됩니다.</span>'; return; }
+  c.innerHTML = '';
+  const nameCount = {};
+  speakerKeys.forEach(k => { const n=k.split('')[0]; nameCount[n]=(nameCount[n]||0)+1; });
+  speakerKeys.forEach(key => {
+    const [name, origColor] = key.split('');
+    const row = document.createElement('div'); row.className = 'speaker-img-row';
+
+    // 라벨 행: 썸네일 + 이름 (+ 색 도트)
+    const labelRow = document.createElement('div'); labelRow.className = 'speaker-img-label';
+    const thumb = document.createElement('img'); thumb.className = 'speaker-img-thumb';
+    const existingUrl = S.speakerImages[key] || '';
+    if (existingUrl) { thumb.src = existingUrl; thumb.classList.add('show'); }
+    const lb = document.createElement('span'); lb.className = 'speaker-img-name'; lb.textContent = name;
+    labelRow.append(thumb, lb);
+    if (nameCount[name] > 1) {
+      const dot = document.createElement('span');
+      dot.title = origColor;
+      dot.style.cssText = `display:inline-block;width:9px;height:9px;border-radius:50%;background:${origColor};flex-shrink:0;margin-left:4px;border:1px solid var(--border2)`;
+      labelRow.appendChild(dot);
+    }
+
+    // URL 입력 필드
+    const inp = document.createElement('input');
+    inp.type = 'text'; inp.className = 'speaker-img-input';
+    inp.placeholder = '이미지 URL 입력…';
+    inp.value = existingUrl;
+
+    const update = () => {
+      const url = inp.value.trim();
+      S.speakerImages[key] = url;
+      if (url) { thumb.src = url; thumb.classList.add('show'); }
+      else { thumb.src = ''; thumb.classList.remove('show'); }
+      doRefreshPreview();
+    };
+
+    inp.addEventListener('blur', update);
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); update(); } });
+
+    row.append(labelRow, inp);
+    c.appendChild(row);
+  });
+}
+
+// ── HTML 생성기 ───────────────────────────────────────────────────
+const THEMES = {
+  default:{ bg:'#f5f5f5', card:'#ffffff', text:'#333', sub:'#666',  border:'#ddd',    badge:'#eee',    font:"'-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif'" },
+  novel:  { bg:'#faf7f2', card:'#fffef9', text:'#3a2e28', sub:'#8b6f47', border:'#e8d5b0', badge:'#f0e8d8', font:"'Georgia,\"Noto Serif KR\",serif'" },
+  minimal:{ bg:'#fff',    card:'#fff',    text:'#444', sub:'#999',  border:'#eee',    badge:'#f4f4f4', font:"'Inter,sans-serif'" },
+  dark:   { bg:'#1a1a1a', card:'#242424', text:'#e0e0e0', sub:'#888', border:'#383838', badge:'#333',  font:"'-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif'" }
+};
+
+function buildOutputHtml({ title, theme, showTab, showImg, entries }) {
+  const t = THEMES[theme] || THEMES.default;
+
+  // ── 주사위 판별 ──
+  function getDiceGrade(msg) {
+    if (!msg.includes('＞')) return null;
+    // 결과 키워드 순서 중요: 긴 것부터 매칭
+    if (/대성공|大成功|クリティカル|スペシャル|CRITICAL|SPECIAL/i.test(msg)) return 'critical';
+    if (/극단적.?성공|イクストリーム成功|EXTREME.?SUCCESS/i.test(msg)) return 'extreme';
+    if (/어려운.?성공|ハード成功|HARD.?SUCCESS/i.test(msg)) return 'hard';
+    if (/대단한.?성공/.test(msg)) return 'hard';
+    if (/보통.?성공|成功|성공|SUCCESS/i.test(msg)) return 'success';
+    if (/대실패|大失敗|ファンブル|FUMBLE/i.test(msg)) return 'fumble';
+    if (/실패|失敗|FAILURE|FAIL/i.test(msg)) return 'failure';
+    return 'roll'; // 결과 키워드 없는 순수 굴림
+  }
+  const DICE_COLOR = {
+    critical: '#f5a623',
+    extreme:  '#1e90ff',
+    hard:     '#1e90ff',
+    success:  '#6abf69',
+    failure:  '#e05555',
+    fumble:   '#c0392b',
+    roll:     null,
+  };
+
+  const rows = entries.map(e => {
+    const msg = esc(e.message).replace(/\n/g,'<br>');
+    if (e.tab === 'other') {
+      const bg = S.tabBgColorsEnabled['other'] ? S.tabBgColors['other'] : '';
+      return `<div class="entry entry-inline"${bg?` style="background:${bg}"`:''}><span class="speaker-inline"><span class="speaker-other">${esc(e.name)}</span><span class="sep"> : </span><span class="body-inline">${msg}</span></span></div>`;
+    }
+    const nc = (S.speakerColorsEnabled[e.key] !== false) ? (S.speakerColors[e.key] ?? e.color) : e.color;
+    const badge = showTab ? `<span class="badge">${esc(e.tab)}</span>` : '';
+    const cardBg = (S.tabBgColorsEnabled[e.tab] && S.tabBgColors[e.tab]) ? S.tabBgColors[e.tab] : t.card;
+    const imgUrl = S.speakerImages[e.key] || '';
+    const imgTag = showImg
+      ? (imgUrl
+          ? `<img class="entry-img" src="${esc(imgUrl)}" alt="" onerror="this.style.visibility='hidden'" />`
+          : `<div class="entry-img-empty"></div>`)
+      : '';
+
+    // 주사위 굴림 여부 판별
+    const grade = getDiceGrade(e.message);
+    if (grade !== null) {
+      const diceColor = DICE_COLOR[grade] || t.text;
+      return `<div class="entry entry-dice"${cardBg!==t.card?` style="background:${cardBg}"`:''}><span class="dice-name">${esc(e.name)}</span><span class="dice-body" style="color:${diceColor}">${msg}</span></div>`;
+    }
+
+    return `<div class="entry${showImg?' has-img':''}"${cardBg!==t.card?` style="background:${cardBg}"`:''}>${imgTag}<div class="entry-content"><div class="entry-head"><span class="speaker" style="color:${nc}">${esc(e.name)}</span>${badge}</div><div class="entry-body">${msg}</div></div></div>`;
+  }).join('\n');
+
+  // ── 에디터 복원용 메타데이터 ──
+  const editorMeta = JSON.stringify({
+    version: '1.0.1',
+    title,
+    theme,
+    showTab,
+    showImg,
+    entries: S.edited,
+    outputTabs: [...S.outputTabs],
+    speakerColors: S.speakerColors,
+    speakerColorsEnabled: S.speakerColorsEnabled,
+    speakerImages: S.speakerImages,
+    tabBgColors: S.tabBgColors,
+    tabBgColorsEnabled: S.tabBgColorsEnabled,
+    tabBgColorsCustom: S.tabBgColorsCustom,
+  });
+
+  return `<!DOCTYPE html>
+<html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${esc(title)}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:${t.bg};color:${t.text};font-family:${t.font};font-size:16px;line-height:1.7;padding:24px 16px}
+.wrap{max-width:720px;margin:0 auto}
+h1{font-size:20px;font-weight:700;color:${t.sub};margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid ${t.border}}
+.entry{background:${t.card};border:1px solid ${t.border};border-radius:7px;padding:11px 14px;margin-bottom:9px;display:flex;gap:10px;align-items:flex-start}
+.entry-inline{padding:6px 14px 6px 28px;overflow:hidden}
+.entry-img{width:44px;height:44px;border-radius:4px;object-fit:cover;flex-shrink:0;border:1px solid ${t.border};margin-top:1px}
+.entry-img-empty{width:44px;height:44px;border-radius:4px;flex-shrink:0;border:1px solid ${t.border};margin-top:1px;background:${t.badge}}
+.entry-content{flex:1;min-width:0}
+.entry-head{display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap}
+.speaker{font-size:15.5px;font-weight:700}
+.speaker-other,.speaker-inline{font-size:15px;color:${theme==='dark'?'#707070':'#aaaaaa'};font-weight:400;line-height:1.6}
+.sep{font-weight:400;color:${theme==='dark'?'#707070':'#aaaaaa'}}.body-inline{font-weight:400;color:${theme==='dark'?'#707070':'#aaaaaa'};word-break:break-all;overflow-wrap:break-word}
+.badge{font-size:12.5px;padding:2px 8px;border-radius:12px;background:${t.badge};color:${t.sub};border:1px solid ${t.border}}
+.entry-body{font-size:16px;white-space:pre-wrap;word-break:break-word}
+.entry-dice{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:7px 14px;background:transparent!important;border-color:transparent!important}
+.dice-name{display:inline-flex;align-items:center;font-size:14px;font-weight:700;color:#fff;background:${theme==='dark'?'#111':'#2a2a2a'};border-radius:20px;padding:3px 12px;white-space:nowrap;flex-shrink:0}
+.dice-body{font-size:15px;line-height:1.6;word-break:break-all;font-weight:500}
+</style></head><body>
+<div class="wrap"><h1>${esc(title)}</h1>
+${rows}
+</div>
+<script type="application/json" id="ccfolia-editor-data">${editorMeta.replace(/<\/script>/g,'<\/script>')}<\/script>
+</body></html>`;
+}
+
+// ── 설정 (localStorage) ───────────────────────────────────────────
+function setupSettings() {
+  $('btn-settings').addEventListener('click',       () => $('overlay-settings').classList.remove('hidden'));
+  $('btn-close-settings').addEventListener('click', () => $('overlay-settings').classList.add('hidden'));
+  $('btn-save-settings').addEventListener('click',  () => {
+    S.settings.theme = $('setting-theme').value;
+    try { localStorage.setItem('ccfolia_settings', JSON.stringify(S.settings)); } catch {}
+    $('overlay-settings').classList.add('hidden');
+  });
+}
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem('ccfolia_settings');
+    if (raw) Object.assign(S.settings, JSON.parse(raw));
+  } catch {}
+  const th = S.settings.theme;
+  $('setting-theme').value = th;
+  $('out-theme').value     = th;
+}
+
+// ── 유틸 ──────────────────────────────────────────────────────────
+function setStatus(id, type, msg) { const el=$(id); el.className=`status ${type}`; el.textContent=msg; }
+function switchPanel(targetId) {
+  document.querySelectorAll('.nav-tab').forEach(b => b.classList.toggle('active', b.dataset.target===targetId));
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id===targetId));
+}
+function flash(btn, on, off) { btn.textContent=on; setTimeout(()=>{ btn.textContent=off; }, 2000); }
+function dlFile(content, name, mime) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], { type: mime }));
+  a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+}
+</script>
+</body>
+</html>
+
 .header-title { font-size:13px; font-weight:600; color:var(--accent); letter-spacing:.02em; }
 
 /* ── 탭 네비 ── */
