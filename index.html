@@ -172,6 +172,9 @@ header { display:flex; align-items:flex-end; justify-content:space-between; padd
 .speaker-row { display:flex; align-items:center; gap:9px; }
 .speaker-name { flex:1; font-size:14.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .color-swatch { width:22px; height:22px; border-radius:4px; border:1px solid var(--border2); flex-shrink:0; cursor:pointer; }
+.color-swatch-wrap { position:relative; display:inline-flex; flex-shrink:0; width:22px; height:22px; }
+.color-swatch-wrap .color-swatch { width:100%; height:100%; }
+.color-swatch-wrap input[type=color] { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; border:none; padding:0; }
 .hex-input { width:74px; background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:3px 6px; color:var(--text); font-size:12px; outline:none; font-family:monospace; flex-shrink:0; }
 .hex-input:focus { border-color:var(--accent); }
 .hex-input:disabled, .color-swatch.disabled { opacity:0.3; pointer-events:none; }
@@ -304,7 +307,7 @@ input[type="color"] { width:30px; height:24px; border:1px solid var(--border); b
 'use strict';
 
 // ── 버전 ──────────────────────────────────────────────────────────
-const VERSION = '1.0.1';
+const VERSION = '1.0.2';
 
 // ── 상태 ──────────────────────────────────────────────────────────
 const S = {
@@ -761,10 +764,16 @@ function renderSpeakerColors() {
     const chk = document.createElement('input'); chk.type='checkbox'; chk.checked=enabled;
     chk.style.cssText='accent-color:var(--accent);margin-right:2px;flex-shrink:0';
     const initColor = S.speakerColors[key] ?? origColor ?? '#aaaaaa';
+    const swatchWrap = document.createElement('span'); swatchWrap.className='color-swatch-wrap';
     const swatch = document.createElement('span'); swatch.className='color-swatch'+(enabled?'':' disabled');
     swatch.style.background = initColor;
+    const picker = document.createElement('input'); picker.type='color';
+    picker.value = /^#[0-9a-fA-F]{6}$/.test(initColor) ? initColor : '#aaaaaa';
+    picker.disabled=!enabled; picker.tabIndex=-1;
+    swatchWrap.append(swatch, picker);
     const hexInp = document.createElement('input'); hexInp.className='hex-input'; hexInp.maxLength=7;
     hexInp.value = initColor; hexInp.disabled=!enabled; hexInp.placeholder='#aaaaaa';
+    const syncColor = (v) => { S.speakerColors[key]=v; swatch.style.background=v; picker.value=v; hexInp.value=v; };
     const applyColor = () => {
       const activeColor = S.speakerColorsEnabled[key] ? (S.speakerColors[key] ?? origColor) : origColor;
       swatch.style.background = activeColor;
@@ -777,15 +786,16 @@ function renderSpeakerColors() {
       doRefreshPreview();
     };
     chk.addEventListener('change', () => {
-      hexInp.disabled=!chk.checked;
+      hexInp.disabled=!chk.checked; picker.disabled=!chk.checked;
       swatch.className='color-swatch'+(chk.checked?'':' disabled');
       S.speakerColorsEnabled[key]=chk.checked;
       applyColor();
     });
+    picker.addEventListener('change', () => { syncColor(picker.value); applyColor(); });
     hexInp.addEventListener('input', () => {
       let v = hexInp.value.trim();
       if (!v.startsWith('#')) v = '#'+v;
-      if (isValidHex(v)) { S.speakerColors[key]=v; swatch.style.background=v; applyColor(); }
+      if (isValidHex(v)) { syncColor(v); applyColor(); }
     });
     hexInp.addEventListener('blur', () => {
       let v = hexInp.value.trim();
@@ -793,15 +803,15 @@ function renderSpeakerColors() {
       if (!isValidHex(v)) hexInp.value = S.speakerColors[key] ?? origColor ?? '#aaaaaa';
       else hexInp.value = v;
     });
-    const lb = document.createElement('span'); lb.className='speaker-name'; lb.textContent = name;
+        const lb = document.createElement('span'); lb.className='speaker-name'; lb.textContent = name;
     // 같은 이름+다른 색상이 있으면 원본 색 도트 표시
     if (nameCount[name] > 1) {
       const dot = document.createElement('span');
       dot.title = origColor;
       dot.style.cssText = `display:inline-block;width:10px;height:10px;border-radius:50%;background:${origColor};flex-shrink:0;margin-left:4px;border:1px solid var(--border2)`;
-      row.append(chk, swatch, hexInp, lb, dot);
+      row.append(chk, swatchWrap, hexInp, lb, dot);
     } else {
-      row.append(chk, swatch, hexInp, lb);
+      row.append(chk, swatchWrap, hexInp, lb);
     }
     c.appendChild(row);
   });
@@ -825,21 +835,30 @@ function renderTabBgColors() {
     const getThemeCard = () => (THEMES[$('out-theme').value] || THEMES.default).card;
     const initVal = S.tabBgColorsCustom[tab] ? S.tabBgColors[tab] : getThemeCard();
     const isValidHex = v => /^#[0-9a-fA-F]{6}$/.test(v);
+    const swatchWrap = document.createElement('span'); swatchWrap.className='color-swatch-wrap';
     const swatch = document.createElement('span'); swatch.className='color-swatch'+(enabled?'':' disabled');
     swatch.style.background = initVal;
+    const picker = document.createElement('input'); picker.type='color';
+    picker.value = isValidHex(initVal) ? initVal : '#000000';
+    picker.disabled=!chk.checked; picker.tabIndex=-1;
+    swatchWrap.append(swatch, picker);
     const hexInp = document.createElement('input'); hexInp.className='hex-input'; hexInp.maxLength=7;
     hexInp.value = initVal; hexInp.disabled=!chk.checked; hexInp.placeholder='#000000';
     chk.addEventListener('change', () => {
-      hexInp.disabled=!chk.checked;
+      hexInp.disabled=!chk.checked; picker.disabled=!chk.checked;
       swatch.className='color-swatch'+(chk.checked?'':' disabled');
       S.tabBgColorsEnabled[tab]=chk.checked;
-      if (chk.checked && !S.tabBgColorsCustom[tab]) { const tc=getThemeCard(); hexInp.value=tc; swatch.style.background=tc; S.tabBgColors[tab]=tc; }
+      if (chk.checked && !S.tabBgColorsCustom[tab]) { const tc=getThemeCard(); hexInp.value=tc; picker.value=tc; swatch.style.background=tc; S.tabBgColors[tab]=tc; }
       doRefreshPreview();
+    });
+    picker.addEventListener('change', () => {
+      S.tabBgColors[tab]=picker.value; S.tabBgColorsCustom[tab]=true;
+      hexInp.value=picker.value; swatch.style.background=picker.value; doRefreshPreview();
     });
     hexInp.addEventListener('input', () => {
       let v = hexInp.value.trim();
       if (!v.startsWith('#')) v = '#'+v;
-      if (isValidHex(v)) { S.tabBgColors[tab]=v; S.tabBgColorsCustom[tab]=true; swatch.style.background=v; doRefreshPreview(); }
+      if (isValidHex(v)) { S.tabBgColors[tab]=v; S.tabBgColorsCustom[tab]=true; swatch.style.background=v; picker.value=v; doRefreshPreview(); }
     });
     hexInp.addEventListener('blur', () => {
       let v = hexInp.value.trim();
@@ -847,8 +866,8 @@ function renderTabBgColors() {
       if (!isValidHex(v)) { hexInp.value = S.tabBgColors[tab] || getThemeCard(); }
       else { hexInp.value = v; }
     });
-    const lb=document.createElement('span'); lb.className='speaker-name'; lb.textContent=TAB_LABEL[tab]??tab;
-    row.append(chk,swatch,hexInp,lb); c.appendChild(row);
+        const lb=document.createElement('span'); lb.className='speaker-name'; lb.textContent=TAB_LABEL[tab]??tab;
+    row.append(chk,swatchWrap,hexInp,lb); c.appendChild(row);
   });
 }
 
