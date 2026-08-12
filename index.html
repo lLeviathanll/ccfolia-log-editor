@@ -80,12 +80,12 @@ header { display:flex; align-items:flex-end; justify-content:space-between; padd
 .search-box:focus { border-color:var(--border2); }
 .count-label { font-size:13px; color:var(--text3); margin-left:auto; }
 
-/* ── 로그 리스트 ── */
-.log-list { display:flex; flex-direction:column; gap:6px; overflow-y:auto; flex:1; }
+/* ── 로그 리스트 (가상 스크롤: 보이는 범위만 실제 DOM으로 렌더링) ── */
+.log-list { position:relative; overflow-y:auto; flex:1; }
 .empty-msg { font-size:14.5px; color:var(--text3); text-align:center; padding:32px; }
 
-/* ── 로그 아이템 ── */
-.log-item { background:var(--bg1); border:1px solid var(--border); border-radius:var(--radius); padding:10px 14px; }
+/* ── 로그 아이템 (가상 스크롤에서 absolute로 배치됨) ── */
+.log-item { position:absolute; left:0; right:0; box-sizing:border-box; background:var(--bg1); border:1px solid var(--border); border-radius:var(--radius); padding:10px 14px; }
 .log-item.muted { opacity:.4; }
 .log-head { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
 .log-speaker { font-size:14.5px; font-weight:600; }
@@ -97,12 +97,16 @@ header { display:flex; align-items:flex-end; justify-content:space-between; padd
 .log-inline { font-size:14px; color:#707070; line-height:1.6; flex:1; min-width:0; word-break:break-all; }
 .log-edit-area { display:none; flex-direction:column; gap:5px; margin-top:8px; }
 .log-edit-area.open { display:flex; }
-.log-textarea { width:100%; background:var(--bg2); border:1px solid var(--border2); border-radius:var(--radius-sm); padding:6px 8px; color:var(--text); font-size:14.5px; line-height:1.6; resize:vertical; min-height:56px; outline:none; font-family:var(--f); }
-.log-edit-btns { display:flex; gap:5px; justify-content:flex-end; }
+.log-textarea { width:100%; flex:1; background:var(--bg2); border:1px solid var(--border2); border-radius:var(--radius-sm); padding:6px 8px; color:var(--text); font-size:14.5px; line-height:1.6; resize:none; overflow-y:auto; outline:none; font-family:var(--f); scrollbar-width:thin; scrollbar-color:#444 transparent; }
+.log-textarea::-webkit-scrollbar { width: 5px; }
+.log-textarea::-webkit-scrollbar-track { background: transparent; }
+.log-textarea::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+.log-textarea::-webkit-scrollbar-thumb:hover { background: #666; }
+.log-edit-btns { display:flex; gap:5px; justify-content:flex-end; flex-shrink:0; }
 
 /* ── 미리보기 ── */
 #preview-wrap { flex:1; border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; min-height:0; }
-#preview-frame { width:100%; height:100%; border:none; background:#fff; }
+#preview-host { width:100%; height:100%; background:#1a1a1a; display:block; }
 
 /* ── 사이드바 접기 ── */
 .sidebar-section { border-bottom:1px solid var(--border); }
@@ -176,8 +180,6 @@ header { display:flex; align-items:flex-end; justify-content:space-between; padd
   flex-shrink: 0;
   background: var(--bg1);
 }
-#preview-wrap { flex:1; overflow:hidden; min-height:0; }
-#preview-frame { width:100%; height:100%; border:none; background:#fff; }
 .form-block { display:flex; flex-direction:column; gap:8px; }
 .field-input { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:7px 10px; color:var(--text); font-size:14.5px; outline:none; width:100%; }
 .field-input:focus { border-color:var(--border2); }
@@ -328,7 +330,7 @@ input[type="color"] { width:30px; height:24px; border:1px solid var(--border); b
         <span class="field-label" style="font-size:13px">미리보기</span>
       </div>
       <div id="preview-wrap">
-        <iframe id="preview-frame" sandbox="allow-same-origin"></iframe>
+        <div id="preview-host"></div>
       </div>
     </div>
   </section>
@@ -342,7 +344,7 @@ input[type="color"] { width:30px; height:24px; border:1px solid var(--border); b
 'use strict';
 
 // ── 버전 ──────────────────────────────────────────────────────────
-const VERSION = '1.1.3';
+const VERSION = '2.0.0';
 
 // ── 상태 ──────────────────────────────────────────────────────────
 const S = {
@@ -405,19 +407,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // ── 탭 네비게이션 ─────────────────────────────────────────────────
 function setupNavTabs() {
   document.querySelectorAll('.nav-tab').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-      btn.classList.add('active');
-      $(btn.dataset.target).classList.add('active');
-      if (btn.dataset.target === 'panel-export') {
-        renderOutTabChips();
-        renderSpeakerColors();
-        renderTabBgColors();
-        renderSpeakerImages();
-        doRefreshPreview();
-      }
-    });
+    btn.addEventListener('click', () => switchPanel(btn.dataset.target));
   });
 }
 
@@ -482,6 +472,11 @@ function restoreFromEditorHtml(filename, text) {
     S.speakerColorsEnabled = data.speakerColorsEnabled || {};
     S.speakerImages        = data.speakerImages        || {};
     S.speakerImagesEnabled = data.speakerImagesEnabled || {};
+    // v1.0.2 이전(캐릭터 이미지 on/off 토글이 생기기 전)에 저장된 파일은 speakerImagesEnabled 자체가 없음.
+    // 그 시절엔 speakerImages에 값이 있으면 항상 적용되는 구조였으므로, 그런 키들은 enabled=true로 마이그레이션.
+    if (data.speakerImagesEnabled === undefined) {
+      Object.keys(S.speakerImages).forEach(key => { S.speakerImagesEnabled[key] = true; });
+    }
     S.tabBgColors          = data.tabBgColors          || {};
     S.tabBgColorsEnabled   = data.tabBgColorsEnabled   || {};
     S.tabBgColorsCustom    = data.tabBgColorsCustom    || {};
@@ -626,8 +621,81 @@ function applyFilter() {
 // ── 편집 패널 ─────────────────────────────────────────────────────
 function setupEditPanel() {
   const sb = $('search-box');
-  sb.addEventListener('input', () => renderLogList(sb.value.trim()));
-  $('btn-search-clear').addEventListener('click', () => { sb.value = ''; renderLogList(); });
+  let searchTimer = null;
+  sb.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => renderLogList(sb.value.trim()), 200);
+  });
+  $('btn-search-clear').addEventListener('click', () => {
+    clearTimeout(searchTimer);
+    sb.value = '';
+    renderLogList();
+  });
+
+  // 가상 스크롤: 스크롤/리사이즈 시 보이는 범위만 다시 계산해서 그림
+  let scrollScheduled = false;
+  $('log-list').addEventListener('scroll', () => {
+    if (scrollScheduled) return;
+    scrollScheduled = true;
+    requestAnimationFrame(() => { scrollScheduled = false; renderVisibleLogRows(); });
+  });
+  window.addEventListener('resize', () => renderVisibleLogRows());
+}
+
+// 가상 스크롤 추정 "콘텐츠" 높이(간격 제외). 처음엔 아래 기본값을 쓰지만, 실측이 들어올 때마다
+// 이동평균으로 자가 보정되어(LOG_ROW_H_CALIBRATED) 이후 미측정 항목의 기본값이 점점 더 정확해진다.
+// -> 스크롤해서 새 항목이 처음 보일 때 "작다가 커지는" 튐을 최소화하기 위함.
+const LOG_ROW_H = { other: 36, normal: 90 };
+const LOG_ROW_H_CALIBRATED = { other: null, normal: null };
+const LOG_ROW_GAP = 6; // 기존 flex gap:6px를 절대 위치 계산에도 그대로 반영
+
+// 편집창 높이를 메시지 내용(글자 수·줄바꿈 개수)만으로 미리 계산한다. DOM을 실제로 측정하지
+// 않고도 "미리 알 수 있는 값"이라는 점을 유지해서, 겹침 방지를 위한 재측정 로직이 여전히 필요 없게 한다.
+const EDIT_TEXTAREA_FONT = 14.5, EDIT_TEXTAREA_LINE_HEIGHT_RATIO = 1.6;
+const EDIT_CHARS_PER_LINE = 42;   // textarea 폭 기준 한 줄당 대략적인 글자 수
+const EDIT_MIN_LINES = 2, EDIT_MAX_LINES = 14; // 너무 작거나 커지지 않게 클램프
+const EDIT_BTN_ROW_H = 30;        // 취소/저장 버튼 줄 높이(대략)
+const EDIT_AREA_GAP = 8;          // .log-edit-area의 margin-top
+
+function estimateEditTextareaHeight(message) {
+  const rawLines = String(message || '').split('\n');
+  let totalLines = 0;
+  rawLines.forEach(line => { totalLines += Math.max(1, Math.ceil(line.length / EDIT_CHARS_PER_LINE)); });
+  const lines = Math.min(EDIT_MAX_LINES, Math.max(EDIT_MIN_LINES, totalLines));
+  const lineHeight = EDIT_TEXTAREA_FONT * EDIT_TEXTAREA_LINE_HEIGHT_RATIO;
+  return Math.round(lines * lineHeight) + 12; // 상하 패딩(6px*2)
+}
+
+function editAreaHeightFor(entry) {
+  return estimateEditTextareaHeight(entry.message) + 5 /* .log-edit-area gap */ + EDIT_BTN_ROW_H + EDIT_AREA_GAP;
+}
+
+function logRowType(i) { return S._vList[i].tab === 'other' ? 'other' : 'normal'; }
+
+function logRowContentHeight(i) {
+  const measured = S._vMeasured.get(i);
+  const base = measured != null ? measured : (LOG_ROW_H_CALIBRATED[logRowType(i)] ?? LOG_ROW_H[logRowType(i)]);
+  const entry = S._vList[i];
+  const editOpen = S._vEditOpenIds && S._vEditOpenIds.has(entry.id);
+  return base + (editOpen ? editAreaHeightFor(entry) : 0);
+}
+
+// 실측값을 기록하면서, 그 타입(일반/잡담)의 기본 추정치도 이동평균으로 같이 보정
+function recordLogRowMeasurement(i, realH) {
+  S._vMeasured.set(i, realH);
+  const type = logRowType(i);
+  LOG_ROW_H_CALIBRATED[type] = LOG_ROW_H_CALIBRATED[type] == null
+    ? realH
+    : Math.round(LOG_ROW_H_CALIBRATED[type] * 0.8 + realH * 0.2);
+}
+
+function computeLogOffsets(list) {
+  const offsets = new Array(list.length + 1);
+  offsets[0] = 0;
+  for (let i = 0; i < list.length; i++) {
+    offsets[i + 1] = offsets[i] + logRowContentHeight(i) + LOG_ROW_GAP;
+  }
+  return offsets;
 }
 
 function renderLogList(query = '') {
@@ -640,15 +708,113 @@ function renderLogList(query = '') {
     ? S.edited.filter(e => e.name.includes(query) || e.message.includes(query))
     : S.edited;
   $('edit-count').textContent = `${list.length}개`;
+
+  const idToIndex = new Map();
+  S.edited.forEach((e, i) => idToIndex.set(e.id, i));
+
+  S._vList = list;
+  S._vIdToIndex = idToIndex;
+  S._vMeasured = new Map(); // index -> 실측 콘텐츠 높이 (목록이 새로 바뀔 때마다 리셋)
+  S._vEditOpenIds = new Set(); // 편집창이 열려있는 항목의 id (고정 높이를 더할지 판단용)
+  S._vOffsets = computeLogOffsets(list);
+  S._vRenderedRange = [-1, -1];
+
   container.innerHTML = '';
-  list.forEach(entry => container.appendChild(makeLogItem(entry, S.edited.indexOf(entry))));
+  const spacer = document.createElement('div');
+  spacer.style.height = S._vOffsets[list.length] + 'px';
+  spacer.style.pointerEvents = 'none';
+  container.appendChild(spacer);
+  S._vSpacer = spacer;
+  container.scrollTop = 0;
+
+  renderVisibleLogRows();
+}
+
+// 이분 탐색: offsets[i] <= y < offsets[i+1]인 i를 찾음
+function findLogRowIndex(offsets, y) {
+  let lo = 0, hi = offsets.length - 2;
+  if (hi < 0) return 0;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (offsets[mid + 1] <= y) lo = mid + 1; else hi = mid;
+  }
+  return lo;
+}
+
+function renderVisibleLogRows() {
+  const container = $('log-list');
+  const list = S._vList;
+  if (!list || !list.length) return;
+  let offsets = S._vOffsets;
+  const scrollTop = container.scrollTop;
+  const viewH = container.clientHeight || 600;
+  const BUFFER_PX = 400; // 위아래 여유분 (스크롤이 빨라도 빈 화면이 안 보이게)
+
+  const startIdx = findLogRowIndex(offsets, Math.max(0, scrollTop - BUFFER_PX));
+  const endIdx = Math.min(list.length, findLogRowIndex(offsets, scrollTop + viewH + BUFFER_PX) + 1);
+
+  const [prevStart, prevEnd] = S._vRenderedRange;
+  if (startIdx === prevStart && endIdx === prevEnd) return; // 범위 안 바뀌었으면 다시 안 그림
+  S._vRenderedRange = [startIdx, endIdx];
+
+  container.querySelectorAll('.log-item').forEach(el => el.remove());
+
+  const frag = document.createDocumentFragment();
+  const rendered = [];
+  for (let i = startIdx; i < endIdx; i++) {
+    const entry = list[i];
+    const el = makeLogItem(entry, S._vIdToIndex.get(entry.id));
+    el.style.top = offsets[i] + 'px';
+    el.dataset.vIdx = i;
+    frag.appendChild(el);
+    rendered.push([i, el]);
+  }
+  container.appendChild(frag);
+
+  // 실제 렌더링된 콘텐츠 높이를 측정해서, 추정치와 다르면 오프셋을 보정 (겹침/빈틈 방지).
+  // 다음 페인트 이후로 미뤄서 측정 (최초 로드 시 패널이 아직 화면에 완전히 자리잡기 전이면
+  // getBoundingClientRect가 0/부정확한 값을 반환해서 보정이 무시되는 문제를 방지).
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      if (S._vList !== list) return; // 그 사이에 목록이 바뀌었으면(검색 등) 무시
+      let localChanged = false;
+      rendered.forEach(([i, el]) => {
+        if (!el.isConnected) return; // 스크롤 등으로 이미 제거된 항목이면 스킵
+        const entry = list[i];
+        if (S._vEditOpenIds.has(entry.id)) return;
+        const realH = Math.round(el.getBoundingClientRect().height);
+        if (realH > 0 && realH !== logRowContentHeight(i)) { recordLogRowMeasurement(i, realH); localChanged = true; }
+      });
+      if (localChanged) {
+        const newOffsets = computeLogOffsets(list);
+        S._vOffsets = newOffsets;
+        S._vSpacer.style.height = newOffsets[list.length] + 'px';
+        $('log-list').querySelectorAll('.log-item').forEach(itemEl => {
+          const vi = Number(itemEl.dataset.vIdx);
+          if (!Number.isNaN(vi)) itemEl.style.top = newOffsets[vi] + 'px';
+        });
+      }
+    });
+  });
+}
+
+// 편집 토글 등으로 높이가 바뀐 뒤에는, 단순히 기존 항목 위치만 재조정하는 게 아니라
+// "지금 화면 범위에 뭐가 들어와야 하는지"부터 다시 판단해야 한다 (경계에 있는 카드를 편집할 때
+// 그 확장으로 새로 포함/제외돼야 할 항목이 생길 수 있어서). 범위를 무효화해서 강제로 다시 계산시킨다.
+function forceRerenderVisibleLogRows() {
+  if (!S._vList) return;
+  S._vOffsets = computeLogOffsets(S._vList);
+  if (S._vSpacer) S._vSpacer.style.height = S._vOffsets[S._vList.length] + 'px';
+  S._vRenderedRange = [-1, -1];
+  renderVisibleLogRows();
 }
 
 function makeLogItem(entry, idx) {
   const isOther = entry.tab === 'other';
-  const speakerColor = isOther ? '#808080' : (S.speakerColors[entry.name] ?? entry.color);
+  const speakerColor = isOther ? '#808080' : (S.speakerColorsEnabled[entry.key] ? (S.speakerColors[entry.key] ?? entry.color) : entry.color);
   const div = document.createElement('div');
   div.className = `log-item${entry.hidden ? ' muted' : ''}`;
+  const editOpenClass = (S._vEditOpenIds && S._vEditOpenIds.has(entry.id)) ? ' open' : '';
 
   if (isOther) {
     div.innerHTML = `
@@ -665,7 +831,7 @@ function makeLogItem(entry, idx) {
           <button class="icon-btn" data-a="del"  title="삭제">🗑</button>
         </div>
       </div>
-      <div class="log-edit-area">
+      <div class="log-edit-area${editOpenClass}">
         <textarea class="log-textarea">${esc(entry.message)}</textarea>
         <div class="log-edit-btns">
           <button class="btn-sm" data-a="cancel">취소</button>
@@ -675,7 +841,7 @@ function makeLogItem(entry, idx) {
   } else {
     div.innerHTML = `
       <div class="log-head">
-        <span class="log-speaker" style="color:${esc(speakerColor)}">${esc(entry.name)}</span>
+        <span class="log-speaker" data-key="${esc(entry.key)}" style="color:${esc(speakerColor)}">${esc(entry.name)}</span>
         <span class="log-tab-chip">${esc(entry.tab)}</span>
         ${entryTimeLabel(entry) ? `<span class="log-time">${esc(entryTimeLabel(entry))}</span>` : ''}
         <div class="log-actions">
@@ -685,7 +851,7 @@ function makeLogItem(entry, idx) {
         </div>
       </div>
       <div class="log-body">${esc(entry.message)}</div>
-      <div class="log-edit-area">
+      <div class="log-edit-area${editOpenClass}">
         <textarea class="log-textarea">${esc(entry.message)}</textarea>
         <div class="log-edit-btns">
           <button class="btn-sm" data-a="cancel">취소</button>
@@ -697,13 +863,26 @@ function makeLogItem(entry, idx) {
   const body     = div.querySelector('.log-body, .log-body-inline');
   const editArea = div.querySelector('.log-edit-area');
   const textarea = div.querySelector('.log-textarea');
+  const editAreaContentHeight = editAreaHeightFor(entry) - EDIT_AREA_GAP; // margin-top은 height 속성에 안 들어가니 제외
+  editArea.style.height = editAreaContentHeight + 'px';
 
-  div.querySelector('[data-a="edit"]').onclick   = () => editArea.classList.toggle('open');
-  div.querySelector('[data-a="cancel"]').onclick = () => { textarea.value = S.edited[idx].message; editArea.classList.remove('open'); };
+  div.querySelector('[data-a="edit"]').onclick   = () => {
+    editArea.classList.toggle('open');
+    if (editArea.classList.contains('open')) S._vEditOpenIds.add(entry.id); else S._vEditOpenIds.delete(entry.id);
+    forceRerenderVisibleLogRows();
+  };
+  div.querySelector('[data-a="cancel"]').onclick = () => {
+    textarea.value = S.edited[idx].message;
+    editArea.classList.remove('open');
+    S._vEditOpenIds.delete(entry.id);
+    forceRerenderVisibleLogRows();
+  };
   div.querySelector('[data-a="save"]').onclick   = () => {
     S.edited[idx].message = textarea.value;
     if (body) body.textContent = textarea.value;
     editArea.classList.remove('open');
+    S._vEditOpenIds.delete(entry.id);
+    forceRerenderVisibleLogRows();
     doRefreshPreview();
   };
   div.querySelector('[data-a="hide"]').onclick = () => {
@@ -729,37 +908,275 @@ function setupPreviewPanel() {
       if (S.tabBgColorsEnabled[tab] && !S.tabBgColorsCustom[tab]) S.tabBgColors[tab] = themeCard;
     });
     renderTabBgColors();
-    doRefreshPreview();
+    patchTheme($('out-theme').value);
+    // 탭 배경색 중 "커스텀 안 하고 테마색 따라가는" 것들은 값이 바뀌었으니 패치도 갱신
+    Object.keys(S.tabBgColorsEnabled).forEach(tab => {
+      if (S.tabBgColorsEnabled[tab] && !S.tabBgColorsCustom[tab]) patchTabBgColor(tab, true, themeCard);
+    });
   });
-  $('opt-tab').addEventListener('change', doRefreshPreview);
-  $('opt-img').addEventListener('change', doRefreshPreview);
-  $('opt-date').addEventListener('change', doRefreshPreview);
+  $('opt-tab').addEventListener('change', () => patchShowToggle('hide-tab', $('opt-tab').checked));
+  $('opt-img').addEventListener('change', () => patchShowToggle('hide-img', $('opt-img').checked));
+  $('opt-date').addEventListener('change', () => patchShowToggle('hide-date', $('opt-date').checked));
   // 제목은 Enter 또는 포커스 해제 시에만 갱신
-  $('out-title').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doRefreshPreview(); } });
-  $('out-title').addEventListener('blur', doRefreshPreview);
+  $('out-title').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); patchTitle($('out-title').value || 'CCFOLIA LOG'); } });
+  $('out-title').addEventListener('blur', () => patchTitle($('out-title').value || 'CCFOLIA LOG'));
 }
+
+// ══════════════════════════════════════════════════════════════════
+// 출력 미리보기: Shadow DOM + 가상 스크롤
+// iframe+doc.write() 대신, 같은 문서 안에서 Shadow DOM으로 스타일만 격리하고
+// 편집 탭과 동일한 원리(오프셋 미리 계산 → 보이는 범위만 실제 DOM으로)를 적용한다.
+// 실제 다운로드/복사 파일은 buildOutputHtml()이 그대로 완전한 정적 HTML을 만들어서 이 엔진과 무관하다.
+// ══════════════════════════════════════════════════════════════════
+const PREVIEW_ROW_H = { other: 34, normal: 96 };
+const PREVIEW_ROW_H_CALIBRATED = { other: null, normal: null };
+const PREVIEW_ROW_GAP = 9; // .entry의 margin-bottom
+
+function initPreviewShadow() {
+  const host = $('preview-host');
+  if (!host) return null;
+  if (host.shadowRoot) return host.shadowRoot;
+  const shadow = host.attachShadow({ mode: 'open' });
+  shadow.innerHTML = `
+    <style id="sp-style"></style>
+    <div class="sp-root" id="sp-root" style="height:100%;overflow-y:auto;position:relative;box-sizing:border-box;">
+      <div class="wrap">
+        <h1 id="sp-title"></h1>
+        <div id="sp-rows" style="position:relative;">
+          <div id="sp-spacer" style="pointer-events:none;"></div>
+        </div>
+      </div>
+    </div>`;
+  S._pShadow = shadow;
+  S._pRootEl = shadow.getElementById('sp-root');
+  S._pRowsEl = shadow.getElementById('sp-rows');
+  S._pSpacer = shadow.getElementById('sp-spacer');
+  S._pStyleEl = shadow.getElementById('sp-style');
+  S._pTitleEl = shadow.getElementById('sp-title');
+
+  let scrollScheduled = false;
+  S._pRootEl.addEventListener('scroll', () => {
+    if (scrollScheduled) return;
+    scrollScheduled = true;
+    requestAnimationFrame(() => { scrollScheduled = false; renderVisiblePreviewRows(); });
+  });
+  window.addEventListener('resize', () => renderVisiblePreviewRows());
+  return shadow;
+}
+
+function previewRowType(i) { return S._pList[i].tab === 'other' ? 'other' : 'normal'; }
+
+function previewRowContentHeight(i) {
+  const measured = S._pMeasured.get(i);
+  if (measured != null) return measured;
+  const type = previewRowType(i);
+  return PREVIEW_ROW_H_CALIBRATED[type] ?? PREVIEW_ROW_H[type];
+}
+
+function recordPreviewRowMeasurement(i, realH) {
+  S._pMeasured.set(i, realH);
+  const type = previewRowType(i);
+  PREVIEW_ROW_H_CALIBRATED[type] = PREVIEW_ROW_H_CALIBRATED[type] == null
+    ? realH
+    : Math.round(PREVIEW_ROW_H_CALIBRATED[type] * 0.8 + realH * 0.2);
+}
+
+function computePreviewOffsets(list) {
+  const offsets = new Array(list.length + 1);
+  offsets[0] = 0;
+  for (let i = 0; i < list.length; i++) {
+    offsets[i + 1] = offsets[i] + previewRowContentHeight(i) + PREVIEW_ROW_GAP;
+  }
+  return offsets;
+}
+
+function findPreviewRowIndex(offsets, y) {
+  let lo = 0, hi = offsets.length - 2;
+  if (hi < 0) return 0;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (offsets[mid + 1] <= y) lo = mid + 1; else hi = mid;
+  }
+  return lo;
+}
+
 let _previewTimer = null;
+// 목록/테마/표시옵션 등 구조적으로 바뀔 때 전체를 다시 계산 (가상 스크롤이라 대용량이어도 빠름).
+// btn-refresh 같은 수동 갱신은 없고, 로드/필터/편집(숨김·삭제·저장)·탭칩 토글 시 호출됨.
 function doRefreshPreview() {
   clearTimeout(_previewTimer);
-  _previewTimer = setTimeout(() => {
-    const html = buildOutputHtml({
-      title: $('out-title').value || 'CCFOLIA LOG',
-      theme: $('out-theme').value,
-      showTab: $('opt-tab').checked,
-      showImg: $('opt-img').checked,
-      showDate: $('opt-date').checked,
-      entries: S.edited.filter(e => !e.hidden && S.outputTabs.has(e.tab))
-    });
-    const frame = $('preview-frame');
-    const doc = frame.contentDocument;
-    if (doc) {
-      doc.open();
-      doc.write(html);
-      doc.close();
-    } else {
-      frame.srcdoc = html;
+  _previewTimer = setTimeout(renderPreviewList, 0);
+}
+
+function renderPreviewList() {
+  const shadow = initPreviewShadow();
+  if (!shadow) return;
+
+  const title = $('out-title').value || 'CCFOLIA LOG';
+  const theme = $('out-theme').value;
+  const showTab = $('opt-tab').checked;
+  const showImg = $('opt-img').checked;
+  const showDate = $('opt-date').checked;
+  const list = S.edited.filter(e => !e.hidden && S.outputTabs.has(e.tab));
+
+  // 색상/탭배경 CSS 변수 인덱스 재계산 (buildOutputHtml과 동일한 방식으로 전역에 반영)
+  const keyCssIdx = {};
+  const tabCssIdx = {};
+  function keyIdx(key) { if (!(key in keyCssIdx)) keyCssIdx[key] = Object.keys(keyCssIdx).length; return keyCssIdx[key]; }
+  function tabIdx(tab) { if (!(tab in tabCssIdx)) tabCssIdx[tab] = Object.keys(tabCssIdx).length; return tabCssIdx[tab]; }
+  list.forEach(e => { tabIdx(e.tab); if (e.tab !== 'other') keyIdx(e.key); });
+  S._keyCssIdx = keyCssIdx;
+  S._tabCssIdx = tabCssIdx;
+
+  const rootVarDecls = [];
+  Object.keys(keyCssIdx).forEach(key => {
+    if (S.speakerColorsEnabled[key] !== false) {
+      const c = S.speakerColors[key];
+      if (c) rootVarDecls.push(`--ck${keyCssIdx[key]}:${c}`);
     }
-  }, 0);
+  });
+  Object.keys(tabCssIdx).forEach(tab => {
+    if (S.tabBgColorsEnabled[tab] && S.tabBgColors[tab]) rootVarDecls.push(`--tbg${tabCssIdx[tab]}:${S.tabBgColors[tab]}`);
+  });
+
+  S._pStyleEl.textContent = previewCssBlock(theme, rootVarDecls, ':host');
+  S._pTitleEl.textContent = title;
+  S._pRootEl.className = `sp-root ${showTab?'':'hide-tab'} ${showImg?'':'hide-img'} ${showDate?'':'hide-date'}`;
+
+  S._pList = list;
+  S._pMeasured = new Map();
+  S._pOffsets = computePreviewOffsets(list);
+  S._pRenderedRange = [-1, -1];
+  S._pSpacer.style.height = S._pOffsets[list.length] + 'px';
+  S._pRootEl.scrollTop = 0;
+
+  renderVisiblePreviewRows();
+}
+
+function renderVisiblePreviewRows() {
+  if (!S._pList || !S._pRowsEl) return;
+  const list = S._pList;
+  if (!list.length) {
+    S._pRowsEl.querySelectorAll('.entry').forEach(el => el.remove());
+    return;
+  }
+  const offsets = S._pOffsets;
+  const scrollTop = S._pRootEl.scrollTop;
+  const viewH = S._pRootEl.clientHeight || 600;
+  const BUFFER_PX = 600;
+
+  const startIdx = findPreviewRowIndex(offsets, Math.max(0, scrollTop - BUFFER_PX));
+  const endIdx = Math.min(list.length, findPreviewRowIndex(offsets, scrollTop + viewH + BUFFER_PX) + 1);
+
+  const [prevStart, prevEnd] = S._pRenderedRange;
+  if (startIdx === prevStart && endIdx === prevEnd) return;
+  S._pRenderedRange = [startIdx, endIdx];
+
+  S._pRowsEl.querySelectorAll('.entry').forEach(el => el.remove());
+
+  const keyIdxLookup = key => S._keyCssIdx[key];
+  const tabIdxLookup = tab => S._tabCssIdx[tab];
+
+  const frag = document.createDocumentFragment();
+  const rendered = [];
+  for (let i = startIdx; i < endIdx; i++) {
+    const e = list[i];
+    const tmp = document.createElement('div');
+    tmp.innerHTML = renderEntryHtml(e, keyIdxLookup, tabIdxLookup);
+    const el = tmp.firstElementChild;
+    el.style.position = 'absolute';
+    el.style.left = '0';
+    el.style.right = '0';
+    el.style.top = offsets[i] + 'px';
+    el.dataset.pIdx = i;
+    frag.appendChild(el);
+    rendered.push([i, el]);
+  }
+  S._pRowsEl.appendChild(frag);
+
+  // 실제 렌더링된 높이를 다음 페인트 이후 측정해서 추정치와 다르면 보정 (편집 탭과 동일한 원리)
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      if (S._pList !== list) return;
+      let changed = false;
+      rendered.forEach(([i, el]) => {
+        if (!el.isConnected) return;
+        const realH = Math.round(el.getBoundingClientRect().height);
+        if (realH > 0 && realH !== previewRowContentHeight(i)) { recordPreviewRowMeasurement(i, realH); changed = true; }
+      });
+      if (changed) {
+        const newOffsets = computePreviewOffsets(list);
+        S._pOffsets = newOffsets;
+        S._pSpacer.style.height = newOffsets[list.length] + 'px';
+        S._pRowsEl.querySelectorAll('.entry').forEach(itemEl => {
+          const vi = Number(itemEl.dataset.pIdx);
+          if (!Number.isNaN(vi)) itemEl.style.top = newOffsets[vi] + 'px';
+        });
+      }
+    });
+  });
+}
+
+// ── 미리보기 즉시 패치 (전체 재생성 없이) ──────────────────────────
+// Shadow DOM 안에서는 :host에 심어둔 CSS 변수가 그대로 상속되므로, 바깥(light DOM)의
+// #preview-host 엘리먼트에 직접 style을 세팅하면 안쪽 전체에 즉시 반영된다.
+function patchShowToggle(cls, on) {
+  if (!S._pRootEl) return;
+  S._pRootEl.classList.toggle(cls, !on);
+}
+function patchTitle(title) {
+  if (!S._pTitleEl) return;
+  S._pTitleEl.textContent = title;
+}
+function patchTheme(themeName) {
+  const host = $('preview-host'); if (!host) return;
+  const t = THEMES[themeName] || THEMES.default;
+  host.style.setProperty('--bg', t.bg);
+  host.style.setProperty('--card', t.card);
+  host.style.setProperty('--text', t.text);
+  host.style.setProperty('--sub', t.sub);
+  host.style.setProperty('--border', t.border);
+  host.style.setProperty('--badge', t.badge);
+  host.style.setProperty('--font', t.font);
+  host.style.setProperty('--other-color', themeName === 'dark' ? '#707070' : '#aaaaaa');
+  host.style.setProperty('--dice-name-bg', themeName === 'dark' ? '#111' : '#2a2a2a');
+}
+function patchSpeakerColor(key, enabled, color) {
+  const host = $('preview-host'); if (!host || !S._keyCssIdx) return;
+  const idx = S._keyCssIdx[key];
+  if (idx == null) return; // 미리보기에 아직 없는 캐릭터면 다음 전체 갱신 때 반영됨
+  if (enabled && color) host.style.setProperty(`--ck${idx}`, color);
+  else host.style.removeProperty(`--ck${idx}`);
+}
+function patchTabBgColor(tab, enabled, color) {
+  const host = $('preview-host'); if (!host || !S._tabCssIdx) return;
+  const idx = S._tabCssIdx[tab];
+  if (idx == null) return;
+  if (enabled && color) host.style.setProperty(`--tbg${idx}`, color);
+  else host.style.removeProperty(`--tbg${idx}`);
+}
+function patchSpeakerImage(key, enabled, uniformUrl) {
+  if (!S._pShadow || !S._keyCssIdx) return;
+  const idx = S._keyCssIdx[key];
+  if (idx == null) return;
+  S._pShadow.querySelectorAll(`[data-img-key="${idx}"]`).forEach(el => {
+    const origImg = el.dataset.origImg || '';
+    const url = enabled ? uniformUrl : origImg;
+    let newEl;
+    if (url) {
+      newEl = document.createElement('img');
+      newEl.className = 'entry-img';
+      newEl.alt = '';
+      newEl.src = url;
+      newEl.onerror = function () { this.style.visibility = 'hidden'; };
+    } else {
+      newEl = document.createElement('div');
+      newEl.className = 'entry-img-empty';
+    }
+    newEl.dataset.imgKey = String(idx);
+    newEl.dataset.origImg = origImg;
+    el.replaceWith(newEl);
+  });
 }
 
 // ── 출력 패널 ─────────────────────────────────────────────────────
@@ -779,13 +1196,13 @@ function setupExportPanel() {
   const handle = $('resize-handle');
   const leftPane = $('export-left');
   let dragging = false, startX = 0, startW = 0;
-  const previewFrame = $('preview-frame');
+  const previewHost = $('preview-host');
   handle.addEventListener('mousedown', e => {
     dragging = true; startX = e.clientX; startW = leftPane.offsetWidth;
     handle.classList.add('dragging');
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
-    previewFrame.style.pointerEvents = 'none'; // iframe 이벤트 차단으로 드래그 성능 향상
+    previewHost.style.pointerEvents = 'none'; // 드래그 중 불필요한 hover 계산 방지
   });
   document.addEventListener('mousemove', e => {
     if (!dragging) return;
@@ -798,7 +1215,7 @@ function setupExportPanel() {
     handle.classList.remove('dragging');
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
-    previewFrame.style.pointerEvents = ''; // 차단 해제
+    previewHost.style.pointerEvents = ''; // 차단 해제
   });
 
   $('btn-download').addEventListener('click', () => {
@@ -885,13 +1302,10 @@ function renderSpeakerColors() {
     const applyColor = () => {
       const activeColor = S.speakerColorsEnabled[key] ? (S.speakerColors[key] ?? origColor) : origColor;
       swatch.style.background = activeColor;
-      document.querySelectorAll('.log-speaker').forEach(el => {
-        const entryEl = el.closest('.log-item');
-        const entryId = entryEl?.dataset.id;
-        const entry = S.edited.find(e => String(e.id)===entryId);
-        if (entry && entry.key===key) el.style.color = activeColor;
+      document.querySelectorAll(`.log-speaker[data-key="${CSS.escape(key)}"]`).forEach(el => {
+        el.style.color = activeColor;
       });
-      doRefreshPreview();
+      patchSpeakerColor(key, S.speakerColorsEnabled[key] !== false, S.speakerColors[key] ?? origColor);
     };
     chk.addEventListener('change', () => {
       hexInp.disabled=!chk.checked; picker.disabled=!chk.checked;
@@ -957,16 +1371,20 @@ function renderTabBgColors() {
       swatch.className='color-swatch'+(chk.checked?'':' disabled');
       S.tabBgColorsEnabled[tab]=chk.checked;
       if (chk.checked && !S.tabBgColorsCustom[tab]) { const tc=getThemeCard(); hexInp.value=tc; picker.value=tc; swatch.style.background=tc; S.tabBgColors[tab]=tc; }
-      doRefreshPreview();
+      patchTabBgColor(tab, chk.checked, S.tabBgColors[tab]);
     });
     picker.addEventListener('change', () => {
       S.tabBgColors[tab]=picker.value; S.tabBgColorsCustom[tab]=true;
-      hexInp.value=picker.value; swatch.style.background=picker.value; doRefreshPreview();
+      hexInp.value=picker.value; swatch.style.background=picker.value;
+      patchTabBgColor(tab, S.tabBgColorsEnabled[tab], S.tabBgColors[tab]);
     });
     hexInp.addEventListener('input', () => {
       let v = hexInp.value.trim();
       if (!v.startsWith('#')) v = '#'+v;
-      if (isValidHex(v)) { S.tabBgColors[tab]=v; S.tabBgColorsCustom[tab]=true; swatch.style.background=v; picker.value=v; doRefreshPreview(); }
+      if (isValidHex(v)) {
+        S.tabBgColors[tab]=v; S.tabBgColorsCustom[tab]=true; swatch.style.background=v; picker.value=v;
+        patchTabBgColor(tab, S.tabBgColorsEnabled[tab], S.tabBgColors[tab]);
+      }
     });
     hexInp.addEventListener('blur', () => {
       let v = hexInp.value.trim();
@@ -1022,14 +1440,14 @@ function renderSpeakerImages() {
       S.speakerImages[key] = url;
       if (url) { thumb.src = url; thumb.classList.add('show'); }
       else { thumb.src = ''; thumb.classList.remove('show'); }
-      doRefreshPreview();
+      patchSpeakerImage(key, S.speakerImagesEnabled[key] === true, url);
     };
 
     chk.addEventListener('change', () => {
       S.speakerImagesEnabled[key] = chk.checked;
       inp.disabled = !chk.checked;
       thumb.classList.toggle('disabled', !chk.checked);
-      doRefreshPreview();
+      patchSpeakerImage(key, chk.checked, S.speakerImages[key] || '');
     });
 
     inp.addEventListener('blur', update);
@@ -1048,59 +1466,107 @@ const THEMES = {
   dark:   { bg:'#1a1a1a', card:'#242424', text:'#e0e0e0', sub:'#888', border:'#383838', badge:'#333',  font:"'-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif'" }
 };
 
-function buildOutputHtml({ title, theme, showTab, showImg, showDate, entries }) {
-  const t = THEMES[theme] || THEMES.default;
+// ── 주사위 판별 (미리보기/다운로드 공통) ──
+function getDiceGrade(msg) {
+  if (!msg.includes('＞')) return null;
+  // 결과 키워드 순서 중요: 긴 것부터 매칭
+  if (/대성공|大成功|クリティカル|スペシャル|CRITICAL|SPECIAL/i.test(msg)) return 'critical';
+  if (/극단적.?성공|イクストリーム成功|EXTREME.?SUCCESS/i.test(msg)) return 'extreme';
+  if (/어려운.?성공|ハード成功|HARD.?SUCCESS/i.test(msg)) return 'hard';
+  if (/대단한.?성공/.test(msg)) return 'hard';
+  if (/보통.?성공|成功|성공|SUCCESS/i.test(msg)) return 'success';
+  if (/대실패|大失敗|ファンブル|FUMBLE/i.test(msg)) return 'fumble';
+  if (/실패|失敗|FAILURE|FAIL/i.test(msg)) return 'failure';
+  return 'roll'; // 결과 키워드 없는 순수 굴림
+}
+const DICE_COLOR = {
+  critical: '#f5a623',
+  extreme:  '#1e90ff',
+  hard:     '#1e90ff',
+  success:  '#6abf69',
+  failure:  '#e05555',
+  fumble:   '#c0392b',
+  roll:     null,
+};
 
-  // ── 주사위 판별 ──
-  function getDiceGrade(msg) {
-    if (!msg.includes('＞')) return null;
-    // 결과 키워드 순서 중요: 긴 것부터 매칭
-    if (/대성공|大成功|クリティカル|スペシャル|CRITICAL|SPECIAL/i.test(msg)) return 'critical';
-    if (/극단적.?성공|イクストリーム成功|EXTREME.?SUCCESS/i.test(msg)) return 'extreme';
-    if (/어려운.?성공|ハード成功|HARD.?SUCCESS/i.test(msg)) return 'hard';
-    if (/대단한.?성공/.test(msg)) return 'hard';
-    if (/보통.?성공|成功|성공|SUCCESS/i.test(msg)) return 'success';
-    if (/대실패|大失敗|ファンブル|FUMBLE/i.test(msg)) return 'fumble';
-    if (/실패|失敗|FAILURE|FAIL/i.test(msg)) return 'failure';
-    return 'roll'; // 결과 키워드 없는 순수 굴림
+// 항목 하나의 HTML을 생성 (미리보기 Shadow DOM과 다운로드 정적 파일이 완전히 같은 마크업을 쓰게 함).
+// keyIdx/tabIdx는 함수: 다운로드 시엔 새 인덱스를 만들며(side-effect), 미리보기 시엔 기존 인덱스를 조회만 함.
+function renderEntryHtml(e, keyIdx, tabIdx) {
+  const msg = esc(e.message).replace(/\n/g,'<br>');
+  const tIdx = tabIdx(e.tab);
+
+  if (e.tab === 'other') {
+    return `<div class="entry entry-inline" style="background:var(--tbg${tIdx}, var(--card))"><span class="speaker-inline"><span class="speaker-other">${esc(e.name)}</span><span class="sep"> : </span><span class="body-inline">${msg}</span></span></div>`;
   }
-  const DICE_COLOR = {
-    critical: '#f5a623',
-    extreme:  '#1e90ff',
-    hard:     '#1e90ff',
-    success:  '#6abf69',
-    failure:  '#e05555',
-    fumble:   '#c0392b',
-    roll:     null,
-  };
+  const kIdx = keyIdx(e.key);
+  const badge = `<span class="badge">${esc(e.tab)}</span>`;
+  const timeTag = entryTimeLabel(e) ? `<span class="entry-time">${esc(entryTimeLabel(e))}</span>` : '';
+  const imgOverrideOn = S.speakerImagesEnabled[e.key] === true;
+  const imgUrl = imgOverrideOn ? (S.speakerImages[e.key] || '') : (e.image || '');
+  const imgTag = imgUrl
+    ? `<img class="entry-img" data-img-key="${kIdx}" data-orig-img="${esc(e.image || '')}" src="${esc(imgUrl)}" alt="" onerror="this.style.visibility='hidden'" />`
+    : `<div class="entry-img-empty" data-img-key="${kIdx}" data-orig-img="${esc(e.image || '')}"></div>`;
 
-  const rows = entries.map(e => {
-    const msg = esc(e.message).replace(/\n/g,'<br>');
-    if (e.tab === 'other') {
-      const bg = S.tabBgColorsEnabled['other'] ? S.tabBgColors['other'] : '';
-      return `<div class="entry entry-inline"${bg?` style="background:${bg}"`:''}><span class="speaker-inline"><span class="speaker-other">${esc(e.name)}</span><span class="sep"> : </span><span class="body-inline">${msg}</span></span></div>`;
-    }
-    const nc = (S.speakerColorsEnabled[e.key] !== false) ? (S.speakerColors[e.key] ?? e.color) : e.color;
-    const badge = showTab ? `<span class="badge">${esc(e.tab)}</span>` : '';
-    const timeTag = (showDate && entryTimeLabel(e)) ? `<span class="entry-time">${esc(entryTimeLabel(e))}</span>` : '';
-    const cardBg = (S.tabBgColorsEnabled[e.tab] && S.tabBgColors[e.tab]) ? S.tabBgColors[e.tab] : t.card;
-    const imgOverrideOn = S.speakerImagesEnabled[e.key] === true;
-    const imgUrl = imgOverrideOn ? (S.speakerImages[e.key] || '') : (e.image || '');
-    const imgTag = showImg
-      ? (imgUrl
-          ? `<img class="entry-img" src="${esc(imgUrl)}" alt="" onerror="this.style.visibility='hidden'" />`
-          : `<div class="entry-img-empty"></div>`)
-      : '';
+  const grade = getDiceGrade(e.message);
+  if (grade !== null) {
+    const diceColor = DICE_COLOR[grade] || 'var(--text)';
+    return `<div class="entry entry-dice" style="background:var(--tbg${tIdx}, transparent)"><span class="dice-name">${esc(e.name)}</span><span class="dice-body" style="color:${diceColor}">${msg}</span></div>`;
+  }
 
-    // 주사위 굴림 여부 판별
-    const grade = getDiceGrade(e.message);
-    if (grade !== null) {
-      const diceColor = DICE_COLOR[grade] || t.text;
-      return `<div class="entry entry-dice"${cardBg!==t.card?` style="background:${cardBg}"`:''}><span class="dice-name">${esc(e.name)}</span><span class="dice-body" style="color:${diceColor}">${msg}</span></div>`;
-    }
+  return `<div class="entry" style="background:var(--tbg${tIdx}, var(--card))"><span class="entry-img-slot">${imgTag}</span><div class="entry-content"><div class="entry-head"><span class="speaker" style="color:var(--ck${kIdx}, ${e.color})" data-key="${kIdx}">${esc(e.name)}</span>${badge}${timeTag}</div><div class="entry-body">${msg}</div></div></div>`;
+}
 
-    return `<div class="entry${showImg?' has-img':''}"${cardBg!==t.card?` style="background:${cardBg}"`:''}>${imgTag}<div class="entry-content"><div class="entry-head"><span class="speaker" style="color:${nc}">${esc(e.name)}</span>${badge}${timeTag}</div><div class="entry-body">${msg}</div></div></div>`;
-  }).join('\n');
+// 미리보기/다운로드 공통 CSS. rootSelector는 다운로드(정적 문서)면 ':root', Shadow DOM 미리보기면 ':host'.
+// (Shadow DOM 안에서 :root는 바깥 문서의 <html>을 가리켜버려서 변수가 안 먹으므로 :host를 써야 함)
+function previewCssBlock(theme, rootVarDecls, rootSelector) {
+  rootSelector = rootSelector || ':root';
+  const t = THEMES[theme] || THEMES.default;
+  return `
+*{box-sizing:border-box;margin:0;padding:0}
+${rootSelector}{
+  --bg:${t.bg};--card:${t.card};--text:${t.text};--sub:${t.sub};--border:${t.border};--badge:${t.badge};--font:${t.font};
+  --other-color:${theme==='dark'?'#707070':'#aaaaaa'};--dice-name-bg:${theme==='dark'?'#111':'#2a2a2a'};
+  ${(rootVarDecls||[]).join(';')}
+}
+body,.sp-root{background:var(--bg);color:var(--text);font-family:var(--font);font-size:16px;line-height:1.7}
+.hide-tab .badge{display:none}
+.hide-img .entry-img,.hide-img .entry-img-empty,.hide-img .entry-img-slot{display:none}
+.hide-date .entry-time{display:none}
+.wrap{max-width:720px;margin:0 auto;padding:24px 16px}
+h1{font-size:20px;font-weight:700;color:var(--sub);margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.entry{border:1px solid var(--border);border-radius:7px;padding:11px 14px;margin-bottom:9px;display:flex;gap:10px;align-items:flex-start;box-sizing:border-box}
+.entry-inline{padding:6px 14px 6px 28px;overflow:hidden}
+.entry-img-slot{display:contents}
+.entry-img{width:44px;height:44px;border-radius:4px;object-fit:cover;object-position:50% 20%;flex-shrink:0;border:1px solid var(--border);margin-top:1px}
+.entry-img-empty{width:44px;height:44px;border-radius:4px;flex-shrink:0;border:1px solid var(--border);margin-top:1px;background:var(--badge)}
+.entry-content{flex:1;min-width:0}
+.entry-head{display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap}
+.speaker{font-size:15.5px;font-weight:700}
+.speaker-other,.speaker-inline{font-size:15px;color:var(--other-color);font-weight:400;line-height:1.6}
+.sep{font-weight:400;color:var(--other-color)}.body-inline{font-weight:400;color:var(--other-color);word-break:break-all;overflow-wrap:break-word}
+.badge{font-size:12.5px;padding:0px 7px;border-radius:12px;background:var(--badge);color:var(--sub);border:1px solid var(--border)}
+.entry-time{font-size:9px;color:var(--sub);opacity:0.75;white-space:nowrap}
+.entry-body{font-size:16px;white-space:pre-wrap;word-break:break-word}
+.entry-dice{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:7px 14px;background:transparent!important;border-color:transparent!important}
+.dice-name{display:inline-flex;align-items:center;font-size:14px;font-weight:700;color:#fff;background:var(--dice-name-bg);border-radius:20px;padding:3px 12px;white-space:nowrap;flex-shrink:0}
+.dice-body{font-size:15px;line-height:1.6;word-break:break-all;font-weight:500}`;
+}
+
+function buildOutputHtml({ title, theme, showTab, showImg, showDate, entries, updateIndexMap = false }) {
+  // 색상/탭배경 패치용 안정적인 숫자 인덱스 (임의 문자열을 CSS 변수명으로 못 쓰니 매핑).
+  // updateIndexMap이 true일 때만(=실시간 미리보기 생성 시) 전역(S)에 동기화한다.
+  const keyCssIdx = {};
+  const tabCssIdx = {};
+  function keyIdx(key) {
+    if (!(key in keyCssIdx)) keyCssIdx[key] = Object.keys(keyCssIdx).length;
+    return keyCssIdx[key];
+  }
+  function tabIdx(tab) {
+    if (!(tab in tabCssIdx)) tabCssIdx[tab] = Object.keys(tabCssIdx).length;
+    return tabCssIdx[tab];
+  }
+
+  const rows = entries.map(e => renderEntryHtml(e, keyIdx, tabIdx)).join('\n');
 
   // ── 에디터 복원용 메타데이터 ──
   const editorMeta = JSON.stringify({
@@ -1121,30 +1587,29 @@ function buildOutputHtml({ title, theme, showTab, showImg, showDate, entries }) 
     tabBgColorsCustom: S.tabBgColorsCustom,
   });
 
+  const rootVarDecls = [];
+  Object.keys(keyCssIdx).forEach(key => {
+    if (S.speakerColorsEnabled[key] !== false) {
+      const c = S.speakerColors[key];
+      if (c) rootVarDecls.push(`--ck${keyCssIdx[key]}:${c}`);
+    }
+  });
+  Object.keys(tabCssIdx).forEach(tab => {
+    if (S.tabBgColorsEnabled[tab] && S.tabBgColors[tab]) {
+      rootVarDecls.push(`--tbg${tabCssIdx[tab]}:${S.tabBgColors[tab]}`);
+    }
+  });
+
+  if (updateIndexMap) {
+    S._keyCssIdx = keyCssIdx;
+    S._tabCssIdx = tabCssIdx;
+  }
+
+  const bodyClass = `${showTab?'':'hide-tab'} ${showImg?'':'hide-img'} ${showDate?'':'hide-date'}`;
   return `<!DOCTYPE html>
 <html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)}</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:${t.bg};color:${t.text};font-family:${t.font};font-size:16px;line-height:1.7;padding:24px 16px}
-.wrap{max-width:720px;margin:0 auto}
-h1{font-size:20px;font-weight:700;color:${t.sub};margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid ${t.border}}
-.entry{background:${t.card};border:1px solid ${t.border};border-radius:7px;padding:11px 14px;margin-bottom:9px;display:flex;gap:10px;align-items:flex-start}
-.entry-inline{padding:6px 14px 6px 28px;overflow:hidden}
-.entry-img{width:44px;height:44px;border-radius:4px;object-fit:cover;object-position:50% 20%;flex-shrink:0;border:1px solid ${t.border};margin-top:1px}
-.entry-img-empty{width:44px;height:44px;border-radius:4px;flex-shrink:0;border:1px solid ${t.border};margin-top:1px;background:${t.badge}}
-.entry-content{flex:1;min-width:0}
-.entry-head{display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap}
-.speaker{font-size:15.5px;font-weight:700}
-.speaker-other,.speaker-inline{font-size:15px;color:${theme==='dark'?'#707070':'#aaaaaa'};font-weight:400;line-height:1.6}
-.sep{font-weight:400;color:${theme==='dark'?'#707070':'#aaaaaa'}}.body-inline{font-weight:400;color:${theme==='dark'?'#707070':'#aaaaaa'};word-break:break-all;overflow-wrap:break-word}
-.badge{font-size:12.5px;padding:0px 7px;border-radius:12px;background:${t.badge};color:${t.sub};border:1px solid ${t.border}}
-.entry-time{font-size:9px;color:${t.sub};opacity:0.75;white-space:nowrap}
-.entry-body{font-size:16px;white-space:pre-wrap;word-break:break-word}
-.entry-dice{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:7px 14px;background:transparent!important;border-color:transparent!important}
-.dice-name{display:inline-flex;align-items:center;font-size:14px;font-weight:700;color:#fff;background:${theme==='dark'?'#111':'#2a2a2a'};border-radius:20px;padding:3px 12px;white-space:nowrap;flex-shrink:0}
-.dice-body{font-size:15px;line-height:1.6;word-break:break-all;font-weight:500}
-</style></head><body>
+<style>${previewCssBlock(theme, rootVarDecls, ':root')}</style></head><body class="${bodyClass}">
 <div class="wrap"><h1>${esc(title)}</h1>
 ${rows}
 </div>
@@ -1161,6 +1626,13 @@ function setStatus(id, type, msg) { const el=$(id); el.className=`status ${type}
 function switchPanel(targetId) {
   document.querySelectorAll('.nav-tab').forEach(b => b.classList.toggle('active', b.dataset.target===targetId));
   document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id===targetId));
+  if (targetId === 'panel-edit') {
+    S._vRenderedRange = [-1, -1]; // 숨겨진 동안 clientHeight가 0이었을 수 있어 강제로 다시 계산
+    renderVisibleLogRows();
+  } else if (targetId === 'panel-export') {
+    S._pRenderedRange = [-1, -1]; // 숨겨진 동안 clientHeight가 0이었을 수 있어 강제로 다시 계산
+    renderVisiblePreviewRows();
+  }
 }
 function flash(btn, on, off) { btn.textContent=on; setTimeout(()=>{ btn.textContent=off; }, 2000); }
 function dlFile(content, name, mime) {
