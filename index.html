@@ -93,8 +93,8 @@ header { display:flex; align-items:flex-end; justify-content:space-between; padd
 .log-time { font-size:9px; color:var(--text2); opacity:0.75; white-space:nowrap; }
 .log-actions { margin-left:auto; display:flex; gap:4px; opacity:0; transition:var(--trans); }
 .log-item:hover .log-actions { opacity:1; }
-.log-body { font-size:14.5px; color:var(--text); line-height:1.65; white-space:pre-wrap; word-break:break-all; }
-.log-inline { font-size:14px; color:#707070; line-height:1.6; flex:1; min-width:0; word-break:break-all; }
+.log-body { font-size:16px; color:var(--text); line-height:1.7; white-space:pre-wrap; word-break:break-all; }
+.log-inline { font-size:15px; color:#707070; line-height:1.6; flex:1; min-width:0; word-break:break-all; }
 .log-edit-area { display:none; flex-direction:column; gap:5px; margin-top:8px; }
 .log-edit-area.open { display:flex; }
 .log-textarea { width:100%; flex:1; background:var(--bg2); border:1px solid var(--border2); border-radius:var(--radius-sm); padding:6px 8px; color:var(--text); font-size:14.5px; line-height:1.6; resize:none; overflow-y:auto; outline:none; font-family:var(--f); scrollbar-width:thin; scrollbar-color:#444 transparent; }
@@ -328,6 +328,11 @@ input[type="color"] { width:30px; height:24px; border:1px solid var(--border); b
     <div class="export-right">
       <div class="preview-header">
         <span class="field-label" style="font-size:13px">미리보기</span>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <input id="preview-search-box" type="text" placeholder="검색…" class="search-box" style="max-width:200px;" />
+          <button id="btn-preview-search-clear" class="icon-btn">✕</button>
+          <span id="preview-search-count" class="count-label"></span>
+        </div>
       </div>
       <div id="preview-wrap">
         <div id="preview-host"></div>
@@ -344,7 +349,7 @@ input[type="color"] { width:30px; height:24px; border:1px solid var(--border); b
 'use strict';
 
 // ── 버전 ──────────────────────────────────────────────────────────
-const VERSION = '2.0.0';
+const VERSION = '2.1.0';
 
 // ── 상태 ──────────────────────────────────────────────────────────
 const S = {
@@ -920,6 +925,23 @@ function setupPreviewPanel() {
   // 제목은 Enter 또는 포커스 해제 시에만 갱신
   $('out-title').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); patchTitle($('out-title').value || 'CCFOLIA LOG'); } });
   $('out-title').addEventListener('blur', () => patchTitle($('out-title').value || 'CCFOLIA LOG'));
+
+  // 미리보기 검색 (필터형: 일치하는 메시지만 남기고 나머지는 제외)
+  const psb = $('preview-search-box');
+  let previewSearchTimer = null;
+  psb.addEventListener('input', () => {
+    clearTimeout(previewSearchTimer);
+    previewSearchTimer = setTimeout(() => {
+      S._pSearchQuery = psb.value.trim();
+      renderPreviewList();
+    }, 200);
+  });
+  $('btn-preview-search-clear').addEventListener('click', () => {
+    clearTimeout(previewSearchTimer);
+    psb.value = '';
+    S._pSearchQuery = '';
+    renderPreviewList();
+  });
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -1017,14 +1039,23 @@ function renderPreviewList() {
   const showTab = $('opt-tab').checked;
   const showImg = $('opt-img').checked;
   const showDate = $('opt-date').checked;
-  const list = S.edited.filter(e => !e.hidden && S.outputTabs.has(e.tab));
+  const query = S._pSearchQuery || '';
+  const fullList = S.edited.filter(e => !e.hidden && S.outputTabs.has(e.tab));
+  const list = query
+    ? fullList.filter(e => e.name.includes(query) || e.message.includes(query))
+    : fullList;
 
-  // 색상/탭배경 CSS 변수 인덱스 재계산 (buildOutputHtml과 동일한 방식으로 전역에 반영)
+  const countEl = $('preview-search-count');
+  if (countEl) countEl.textContent = query ? `${list.length}개 일치` : '';
+
+  // 색상/탭배경 CSS 변수 인덱스는 검색 필터와 무관하게 "탭 표시 기준 전체 목록"으로 계산한다.
+  // 검색 결과만으로 인덱스를 매기면 검색 상태에 따라 같은 캐릭터의 번호가 바뀌어서,
+  // 필터링 중 바꾼 색이 필터를 풀면 다른 캐릭터에 적용되는 버그가 생긴다.
   const keyCssIdx = {};
   const tabCssIdx = {};
   function keyIdx(key) { if (!(key in keyCssIdx)) keyCssIdx[key] = Object.keys(keyCssIdx).length; return keyCssIdx[key]; }
   function tabIdx(tab) { if (!(tab in tabCssIdx)) tabCssIdx[tab] = Object.keys(tabCssIdx).length; return tabCssIdx[tab]; }
-  list.forEach(e => { tabIdx(e.tab); if (e.tab !== 'other') keyIdx(e.key); });
+  fullList.forEach(e => { tabIdx(e.tab); if (e.tab !== 'other') keyIdx(e.key); });
   S._keyCssIdx = keyCssIdx;
   S._tabCssIdx = tabCssIdx;
 
@@ -1460,10 +1491,10 @@ function renderSpeakerImages() {
 
 // ── HTML 생성기 ───────────────────────────────────────────────────
 const THEMES = {
-  default:{ bg:'#f5f5f5', card:'#ffffff', text:'#333', sub:'#666',  border:'#ddd',    badge:'#eee',    font:"'-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif'" },
-  novel:  { bg:'#faf7f2', card:'#fffef9', text:'#3a2e28', sub:'#8b6f47', border:'#e8d5b0', badge:'#f0e8d8', font:"'Georgia,\"Noto Serif KR\",serif'" },
-  minimal:{ bg:'#fff',    card:'#fff',    text:'#444', sub:'#999',  border:'#eee',    badge:'#f4f4f4', font:"'Inter,sans-serif'" },
-  dark:   { bg:'#1a1a1a', card:'#242424', text:'#e0e0e0', sub:'#888', border:'#383838', badge:'#333',  font:"'-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif'" }
+  default:{ bg:'#f5f5f5', card:'#ffffff', text:'#333', sub:'#666',  border:'#ddd',    badge:'#eee',    font:"-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothic', sans-serif" },
+  novel:  { bg:'#faf7f2', card:'#fffef9', text:'#3a2e28', sub:'#8b6f47', border:'#e8d5b0', badge:'#f0e8d8', font:"Georgia, 'Noto Serif KR', serif" },
+  minimal:{ bg:'#fff',    card:'#fff',    text:'#444', sub:'#999',  border:'#eee',    badge:'#f4f4f4', font:"Inter, 'Malgun Gothic', sans-serif" },
+  dark:   { bg:'#1a1a1a', card:'#242424', text:'#e0e0e0', sub:'#888', border:'#383838', badge:'#333',  font:"-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothic', sans-serif" }
 };
 
 // ── 주사위 판별 (미리보기/다운로드 공통) ──
