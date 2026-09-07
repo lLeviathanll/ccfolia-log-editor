@@ -375,8 +375,14 @@ const esc = s => String(s ?? '')
   .replace(/&/g,'&amp;').replace(/</g,'&lt;')
   .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const entryTimeLabel = e => {
-  const raw = (e && (e.time || e.date)) || '';
-  // "YYYY/MM/DD" 형식이면 연도를 2자리로 축약 (예: 2026/07/22 -> 26/07/22)
+  if (!e) return '';
+  // 신 형식(정밀 시:분:초 있음): "26/08/27 14:02:06" 형태로 조합
+  if (e.time) {
+    const shortDate = (e.date || '').replace(/^\d{2}(\d{2})\//, '$1/');
+    return shortDate ? `${shortDate} ${e.time}` : e.time;
+  }
+  // 구 형식(날짜만 있음, 시간 정보 자체가 없거나 모호함): 기존처럼 날짜만 표시
+  const raw = e.date || '';
   return raw.replace(/^\d{2}(\d{2})\//, '$1/');
 };
 
@@ -617,15 +623,18 @@ function processJsonV2(filename, raw) {
     message = message.trim();
     if (!message) return null;
 
-    let date = '';
+    let date = '', time = '';
     if (typeof m.createdAt === 'number') {
       const d = new Date(m.createdAt);
-      if (!isNaN(d)) date = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+      if (!isNaN(d)) {
+        date = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+        time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+      }
     }
 
     const image = (m.iconImage && images[m.iconImage]) ? images[m.iconImage] : '';
     const key = name + '\uE000' + color;
-    return { id: id++, tab, name, color, key, message, hidden: false, image, date, time: '' };
+    return { id: id++, tab, name, color, key, message, hidden: false, image, date, time };
   }).filter(Boolean);
 
   if (!entries.length) {
@@ -706,12 +715,15 @@ function parseCcfoliaHtmlV2(htmlText) {
     message = message.trim();
     if (!message) return;
 
-    let date = '';
+    let date = '', time = '';
     const timeEl = article.querySelector('.timestamp');
     const iso = timeEl ? timeEl.getAttribute('datetime') : null;
     if (iso) {
       const d = new Date(iso);
-      if (!isNaN(d)) date = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+      if (!isNaN(d)) {
+        date = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+        time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+      }
     }
 
     let image = '';
@@ -722,7 +734,7 @@ function parseCcfoliaHtmlV2(htmlText) {
     }
 
     const key = name + '\uE000' + color;
-    entries.push({ id: id++, tab, name, color, key, message, hidden: false, image, date, time: '' });
+    entries.push({ id: id++, tab, name, color, key, message, hidden: false, image, date, time });
   });
 
   return entries;
