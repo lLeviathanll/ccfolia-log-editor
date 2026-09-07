@@ -42,7 +42,7 @@ header { display:flex; align-items:flex-end; justify-content:space-between; padd
 .drop-zone.drag-over { border-color:var(--accent); background:var(--bg2); }
 .drop-icon { font-size:38px; }
 .drop-primary { font-size:15px; color:var(--text); }
-.drop-hint { font-size:13px; color:var(--text3); }
+.drop-hint { display:block; max-width:500px; text-align:left; font-size:13px; color:var(--text3); line-height:1.6; }
 
 /* ── 상태 ── */
 .status { font-size:13.5px; min-height:16px; white-space:pre-wrap; }
@@ -253,7 +253,7 @@ input[type="color"] { width:30px; height:24px; border:1px solid var(--border); b
       <input id="file-input" type="file" accept=".html,.htm,.json" hidden />
       <span class="drop-icon">📂</span>
       <span class="drop-primary">클릭하거나 파일을 드래그하세요</span>
-      <span class="drop-hint">ccfolia에서 내보낸 .html 로그 파일, 이 에디터에서 수정한 .html 로그 파일, 혹은 .json 로그 파일</span>
+      <span class="drop-hint">・ccfolia에서 다운로드 받은 .json / .html 로그 파일 (.json 사용 권장)<br>・이 에디터에서 수정한 .html 로그 파일<br>・추출기로 추출한 .json 파일</span>
     </label>
     <div id="load-status" class="status"></div>
     <div id="log-info" class="card hidden">
@@ -358,7 +358,7 @@ input[type="color"] { width:30px; height:24px; border:1px solid var(--border); b
 'use strict';
 
 // ── 버전 ──────────────────────────────────────────────────────────
-const VERSION = '2.1.1';
+const VERSION = '2.2.0';
 
 // ── 상태 ──────────────────────────────────────────────────────────
 const S = {
@@ -452,14 +452,29 @@ function readFile(file) {
   const reader = new FileReader();
   reader.onload = e => {
     const text = e.target.result;
-    // JSON 로그 (확장 프로그램 등에서 추출한 데이터)
+    // JSON 로그 (확장 프로그램 등에서 추출한 데이터, 또는 CCFOLIA 신규 내보내기 JSON)
     if (file.name.toLowerCase().endsWith('.json')) {
-      processJson(file.name, text);
+      let raw;
+      try { raw = JSON.parse(text); } catch (err) {
+        setStatus('load-status', 'err', `❌ JSON 파싱 실패: ${err.message}`);
+        return;
+      }
+      // 신규 형식: { messages: [...], images: {...} }
+      if (raw && !Array.isArray(raw) && Array.isArray(raw.messages)) {
+        processJsonV2(file.name, raw);
+      } else {
+        processJson(file.name, text);
+      }
       return;
     }
     // 에디터 출력 HTML이면 복원 시도
     if (file.name.endsWith('.html') && text.includes('id="ccfolia-editor-data"')) {
       if (restoreFromEditorHtml(file.name, text)) return;
+    }
+    // 신규 CCFOLIA 내보내기 HTML (message-list 구조)
+    if (text.includes('class="message-list"')) {
+      processTextV2(file.name, text);
+      return;
     }
     processText(file.name, text);
   };
@@ -476,15 +491,32 @@ function restoreFromEditorHtml(filename, text) {
     // 버전별 마이그레이션 (현재는 VERSION 단일)
     const version = data.version || '1.0.0';
 
+    // v2.2.2 이후 저장된 파일은 이미지를 공유 목록(images[]) + 인덱스(imgRef)로 저장함(중복 방지).
+    // data.images가 있으면 그 방식으로 보고 원래 image 문자열로 복원하고, 없으면(구버전 파일)
+    // entries[].image / speakerImages[key]에 값이 직접 들어있는 기존 방식 그대로 사용한다.
+    let restoredEntries = data.entries;
+    let restoredSpeakerImages = data.speakerImages || {};
+    if (Array.isArray(data.images)) {
+      restoredEntries = data.entries.map(e => {
+        const { imgRef, ...rest } = e;
+        return { ...rest, image: (imgRef != null && data.images[imgRef]) ? data.images[imgRef] : '' };
+      });
+      restoredSpeakerImages = {};
+      Object.keys(data.speakerImages || {}).forEach(key => {
+        const ref = data.speakerImages[key];
+        restoredSpeakerImages[key] = (ref != null && data.images[ref]) ? data.images[ref] : '';
+      });
+    }
+
     // 상태 복원
-    S.entries = data.entries;
-    S.edited  = data.entries.map(e => ({ ...e }));
+    S.entries = restoredEntries;
+    S.edited  = restoredEntries.map(e => ({ ...e }));
     S.filtered = S.edited;
-    S.outputTabs = new Set(data.outputTabs || data.entries.map(e => e.tab));
-    S.activeTabs = new Set(data.entries.map(e => e.tab));
+    S.outputTabs = new Set(data.outputTabs || restoredEntries.map(e => e.tab));
+    S.activeTabs = new Set(restoredEntries.map(e => e.tab));
     S.speakerColors        = data.speakerColors        || {};
     S.speakerColorsEnabled = data.speakerColorsEnabled || {};
-    S.speakerImages        = data.speakerImages        || {};
+    S.speakerImages        = restoredSpeakerImages;
     S.speakerImagesEnabled = data.speakerImagesEnabled || {};
     // v1.0.2 이전(캐릭터 이미지 on/off 토글이 생기기 전)에 저장된 파일은 speakerImagesEnabled 자체가 없음.
     // 그 시절엔 speakerImages에 값이 있으면 항상 적용되는 구조였으므로, 그런 키들은 enabled=true로 마이그레이션.
@@ -563,6 +595,46 @@ function processJson(filename, text) {
   processEntries(filename, entries);
 }
 
+function processJsonV2(filename, raw) {
+  const images = raw.images || {};
+  let id = 0;
+  const entries = raw.messages.map(m => {
+    if (m.type === 'system') return null; // 화자 없는 시스템 알림은 기존과 동일하게 건너뜀
+    const name = String(m.name ?? '').trim();
+    if (!name) return null;
+    const color = String(m.color ?? '#aaaaaa').trim() || '#aaaaaa';
+    // channel은 비밀 탭의 경우 임의 내부 ID라 channelName(사람이 읽을 수 있는 라벨)을 우선 사용
+    const tab = String(m.channelName ?? m.channel ?? 'other').trim() || 'other';
+
+    let message = String(m.text ?? '');
+    const roll = m.extend && m.extend.roll;
+    // success/critical/fumble 같은 구조화된 값은 신뢰할 수 없는 것으로 확인되어(같은 판정 패턴이
+    // 로그마다 다르게 세팅됨) 쓰지 않고, 결과 문자열을 메시지에 합쳐서 기존 텍스트 판별 로직을 그대로 재사용한다.
+    if (roll && roll.result) {
+      const rollText = String(roll.result).trim();
+      message = message ? `${message}\n${rollText}` : rollText;
+    }
+    message = message.trim();
+    if (!message) return null;
+
+    let date = '';
+    if (typeof m.createdAt === 'number') {
+      const d = new Date(m.createdAt);
+      if (!isNaN(d)) date = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    const image = (m.iconImage && images[m.iconImage]) ? images[m.iconImage] : '';
+    const key = name + '\uE000' + color;
+    return { id: id++, tab, name, color, key, message, hidden: false, image, date, time: '' };
+  }).filter(Boolean);
+
+  if (!entries.length) {
+    setStatus('load-status', 'err', '❌ 로그를 찾지 못했습니다.');
+    return;
+  }
+  processEntries(filename, entries);
+}
+
 function processText(filename, text) {
   try {
     const entries = parseCcfoliaHtml(text);
@@ -574,6 +646,86 @@ function processText(filename, text) {
   } catch(err) {
     setStatus('load-status', 'err', `❌ 오류: ${err.message}`);
   }
+}
+
+function processTextV2(filename, text) {
+  try {
+    const entries = parseCcfoliaHtmlV2(text);
+    if (!entries.length) {
+      setStatus('load-status', 'err', '❌ 로그를 찾지 못했습니다.\nccfolia에서 내보낸 .html 파일인지 확인해주세요.');
+      return;
+    }
+    processEntries(filename, entries);
+  } catch(err) {
+    setStatus('load-status', 'err', `❌ 오류: ${err.message}`);
+  }
+}
+
+// 신규 CCFOLIA 내보내기 HTML 파서 (message-list / article.message 구조).
+// 탭은 비밀 탭의 경우 data-channel이 임의 내부 ID라 channel-name 라벨(대괄호 벗김)을 우선 사용.
+// 주사위 판정은 message-text와 roll-result를 합쳐서 기존 텍스트 판별 로직(getDiceGrade)에 그대로 태운다.
+function parseCcfoliaHtmlV2(htmlText) {
+  const doc = new DOMParser().parseFromString(htmlText, 'text/html');
+  const entries = [];
+  let id = 0;
+
+  // <style> 안의 .avatar-image-N { background-image: url("...") } 매핑 파싱
+  const imageMap = {};
+  const styleText = Array.from(doc.querySelectorAll('style')).map(s => s.textContent).join('\n');
+  const imgRegex = /\.avatar-image-(\d+)\s*\{[^}]*background-image:\s*url\((["']?)(.*?)\2\)/g;
+  let im;
+  while ((im = imgRegex.exec(styleText))) {
+    imageMap[im[1]] = im[3];
+  }
+
+  doc.querySelectorAll('article.message').forEach(article => {
+    if (article.classList.contains('system')) return; // 화자 없는 시스템 알림은 건너뜀
+
+    const speakerEl = article.querySelector('.speaker');
+    if (!speakerEl) return;
+    const name = speakerEl.textContent.trim();
+    if (!name) return;
+
+    const colorMatch = (speakerEl.getAttribute('style') || '').match(/--speaker-color:\s*(#[0-9a-fA-F]{3,8}|[a-z]+)/i);
+    const color = colorMatch ? colorMatch[1] : '#aaaaaa';
+
+    const dataChannel = article.getAttribute('data-channel') || '';
+    const channelNameEl = article.querySelector('.channel-name');
+    const channelLabel = channelNameEl ? channelNameEl.textContent.trim().replace(/^\[|\]$/g, '') : '';
+    // main/info/other 표준 채널은 data-channel(영문 키)로 정규화해서 JSON 파서와 값이 일치하게 함.
+    // 비밀/커스텀 채널은 data-channel이 임의 내부 ID라 읽을 수 있는 라벨을 그대로 사용.
+    const tab = ['main', 'info', 'other'].includes(dataChannel) ? dataChannel : (channelLabel || dataChannel || 'other');
+
+    const textEl = article.querySelector('.message-text');
+    let message = textEl ? textEl.textContent : '';
+    const rollEl = article.querySelector('.roll-result');
+    if (rollEl) {
+      const rollText = rollEl.textContent.trim();
+      message = message ? `${message}\n${rollText}` : rollText;
+    }
+    message = message.trim();
+    if (!message) return;
+
+    let date = '';
+    const timeEl = article.querySelector('.timestamp');
+    const iso = timeEl ? timeEl.getAttribute('datetime') : null;
+    if (iso) {
+      const d = new Date(iso);
+      if (!isNaN(d)) date = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    let image = '';
+    const avatarEl = article.querySelector('.avatar');
+    if (avatarEl) {
+      const cls = Array.from(avatarEl.classList).find(c => c.startsWith('avatar-image-'));
+      if (cls) image = imageMap[cls.replace('avatar-image-', '')] || '';
+    }
+
+    const key = name + '\uE000' + color;
+    entries.push({ id: id++, tab, name, color, key, message, hidden: false, image, date, time: '' });
+  });
+
+  return entries;
 }
 
 function processEntries(filename, entries) {
@@ -1531,7 +1683,7 @@ const DICE_COLOR = {
 
 // 항목 하나의 HTML을 생성 (미리보기 Shadow DOM과 다운로드 정적 파일이 완전히 같은 마크업을 쓰게 함).
 // keyIdx/tabIdx는 함수: 다운로드 시엔 새 인덱스를 만들며(side-effect), 미리보기 시엔 기존 인덱스를 조회만 함.
-function renderEntryHtml(e, keyIdx, tabIdx) {
+function renderEntryHtml(e, keyIdx, tabIdx, imgIdx) {
   const msg = esc(e.message).replace(/\n/g,'<br>');
   const tIdx = tabIdx(e.tab);
 
@@ -1543,9 +1695,20 @@ function renderEntryHtml(e, keyIdx, tabIdx) {
   const timeTag = entryTimeLabel(e) ? `<span class="entry-time">${esc(entryTimeLabel(e))}</span>` : '';
   const imgOverrideOn = S.speakerImagesEnabled[e.key] === true;
   const imgUrl = imgOverrideOn ? (S.speakerImages[e.key] || '') : (e.image || '');
-  const imgTag = imgUrl
-    ? `<img class="entry-img" data-img-key="${kIdx}" data-orig-img="${esc(e.image || '')}" src="${esc(imgUrl)}" alt="" onerror="this.style.visibility='hidden'" />`
-    : `<div class="entry-img-empty" data-img-key="${kIdx}" data-orig-img="${esc(e.image || '')}"></div>`;
+  // data-orig-img(원본 이미지 기억)는 미리보기의 "켜기/끄기 토글" 상호작용에만 필요함.
+  // 다운로드 파일(imgIdx 있음)에서는 그 기능이 아예 없으니 넣지 않는다 - 안 그러면 여기서
+  // 메시지마다 원본 base64가 다시 통째로 중복 저장되어 위 img-ref 중복 제거가 무의미해짐.
+  const origAttr = imgIdx ? '' : ` data-orig-img="${esc(e.image || '')}"`;
+  let imgTag;
+  if (imgUrl && imgIdx) {
+    // 다운로드 파일: 같은 URL(특히 base64 이미지)이 메시지마다 통째로 중복 저장되는 걸 막기 위해
+    // <style>에 한 번만 넣고 CSS 클래스로 참조한다 (CCFOLIA 자체 신규 내보내기와 같은 방식).
+    imgTag = `<div class="entry-img img-ref-${imgIdx(imgUrl)}" data-img-key="${kIdx}"${origAttr}></div>`;
+  } else if (imgUrl) {
+    imgTag = `<img class="entry-img" data-img-key="${kIdx}"${origAttr} src="${esc(imgUrl)}" alt="" onerror="this.style.visibility='hidden'" />`;
+  } else {
+    imgTag = `<div class="entry-img-empty" data-img-key="${kIdx}"${origAttr}></div>`;
+  }
 
   const grade = getDiceGrade(e.message);
   if (grade !== null) {
@@ -1581,7 +1744,7 @@ h1{font-size:20px;font-weight:700;color:var(--sub);margin-bottom:20px;padding-bo
 .entry{border:1px solid var(--border);border-radius:7px;padding:11px 14px;margin-bottom:9px;display:flex;gap:10px;align-items:flex-start;box-sizing:border-box}
 .entry-inline{padding:6px 14px 6px 28px;overflow:hidden}
 .entry-img-slot{display:contents}
-.entry-img{width:44px;height:44px;border-radius:4px;object-fit:cover;object-position:50% 20%;flex-shrink:0;border:1px solid var(--border);margin-top:1px}
+.entry-img{width:44px;height:44px;border-radius:4px;object-fit:cover;object-position:50% 20%;background-size:cover;background-position:50% 20%;background-repeat:no-repeat;flex-shrink:0;border:1px solid var(--border);margin-top:1px}
 .entry-img-empty{width:44px;height:44px;border-radius:4px;flex-shrink:0;border:1px solid var(--border);margin-top:1px;background:var(--badge)}
 .entry-content{flex:1;min-width:0}
 .entry-head{display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap}
@@ -1610,7 +1773,37 @@ function buildOutputHtml({ title, theme, showTab, showImg, showDate, entries, up
     return tabCssIdx[tab];
   }
 
-  const rows = entries.map(e => renderEntryHtml(e, keyIdx, tabIdx)).join('\n');
+  // 이미지 URL 중복 제거: 같은 URL(특히 base64 이미지)이 메시지마다 통째로 복제되는 걸 막기 위해
+  // 고유 URL마다 하나의 CSS 클래스로만 저장하고 각 항목은 그 클래스를 참조한다.
+  const imgUrlIdx = {};
+  function imgIdx(url) {
+    if (!(url in imgUrlIdx)) imgUrlIdx[url] = Object.keys(imgUrlIdx).length;
+    return imgUrlIdx[url];
+  }
+
+  const rows = entries.map(e => renderEntryHtml(e, keyIdx, tabIdx, imgIdx)).join('\n');
+
+  const imgCssRules = Object.keys(imgUrlIdx)
+    .map(url => `.img-ref-${imgUrlIdx[url]}{background-image:url("${url.replace(/"/g, '&quot;')}")}`)
+    .join('\n');
+
+  // 에디터 복원용 메타데이터도 이미지를 중복 저장하면 안 되므로, 위와 같은 방식으로
+  // 공유 이미지 목록 + 인덱스 참조로 저장한다 (entries[].image, speakerImages[key] 둘 다 해당).
+  const metaImages = [];
+  const metaImageIdx = {};
+  function metaImgRef(url) {
+    if (!url) return null;
+    if (!(url in metaImageIdx)) { metaImageIdx[url] = metaImages.length; metaImages.push(url); }
+    return metaImageIdx[url];
+  }
+  const entriesForMeta = S.edited.map(e => {
+    const { image, ...rest } = e;
+    return { ...rest, imgRef: metaImgRef(image) };
+  });
+  const speakerImagesForMeta = {};
+  Object.keys(S.speakerImages).forEach(key => {
+    speakerImagesForMeta[key] = metaImgRef(S.speakerImages[key]);
+  });
 
   // ── 에디터 복원용 메타데이터 ──
   const editorMeta = JSON.stringify({
@@ -1620,11 +1813,12 @@ function buildOutputHtml({ title, theme, showTab, showImg, showDate, entries, up
     showTab,
     showImg,
     showDate,
-    entries: S.edited,
+    entries: entriesForMeta,
+    images: metaImages,
     outputTabs: [...S.outputTabs],
     speakerColors: S.speakerColors,
     speakerColorsEnabled: S.speakerColorsEnabled,
-    speakerImages: S.speakerImages,
+    speakerImages: speakerImagesForMeta,
     speakerImagesEnabled: S.speakerImagesEnabled,
     tabBgColors: S.tabBgColors,
     tabBgColorsEnabled: S.tabBgColorsEnabled,
@@ -1653,7 +1847,7 @@ function buildOutputHtml({ title, theme, showTab, showImg, showDate, entries, up
   return `<!DOCTYPE html>
 <html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)}</title>
-<style>${previewCssBlock(theme, rootVarDecls, ':root')}</style></head><body class="${bodyClass}">
+<style>${previewCssBlock(theme, rootVarDecls, ':root')}\n${imgCssRules}</style></head><body class="${bodyClass}">
 <div class="wrap"><h1>${esc(title)}</h1>
 ${rows}
 </div>
