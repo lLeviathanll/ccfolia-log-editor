@@ -80,13 +80,13 @@ header { display:flex; align-items:flex-end; justify-content:space-between; padd
 .mt { margin-top:6px; }
 
 /* ── 툴바 ── */
-.toolbar { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+.toolbar { display:flex; align-items:center; justify-content:center; gap:6px; flex-shrink:0; }
 .search-box { flex:1; max-width:320px; background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:6px 10px; color:var(--text); font-size:14.5px; outline:none; }
 .search-box:focus { border-color:var(--border2); }
-.count-label { font-size:13px; color:var(--text3); margin-left:auto; }
+.count-label { font-size:13px; color:var(--text3); margin-right:auto; }
 
 /* ── 로그 리스트 (가상 스크롤: 보이는 범위만 실제 DOM으로 렌더링) ── */
-.log-list { position:relative; overflow-y:auto; flex:1; scrollbar-width:thin; scrollbar-color:#444 transparent; }
+.log-list { position:relative; overflow-y:auto; flex:1; scrollbar-width:thin; scrollbar-color:#444 transparent; overflow-anchor:none; }
 .log-list::-webkit-scrollbar { width: 5px; }
 .log-list::-webkit-scrollbar-track { background: transparent; }
 .log-list::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
@@ -94,7 +94,7 @@ header { display:flex; align-items:flex-end; justify-content:space-between; padd
 .empty-msg { font-size:14.5px; color:var(--text3); text-align:center; padding:32px; }
 
 /* ── 로그 아이템 (가상 스크롤에서 absolute로 배치됨) ── */
-.log-item { position:absolute; left:0; right:8px; box-sizing:border-box; background:var(--bg1); border:1px solid var(--border); border-radius:var(--radius); padding:10px 14px; }
+.log-item { position:absolute; left:0; right:0; width:calc(100% - 8px); max-width:720px; margin:0 auto; top:0; box-sizing:border-box; background:var(--bg1); border:1px solid var(--border); border-radius:var(--radius); padding:10px 14px; }
 .log-item.muted { opacity:.4; }
 .log-head { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
 .log-speaker { font-size:14.5px; font-weight:600; }
@@ -189,7 +189,6 @@ header { display:flex; align-items:flex-end; justify-content:space-between; padd
   flex-shrink: 0;
   background: var(--bg1);
 }
-.form-block { display:flex; flex-direction:column; gap:8px; }
 .field-input { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:7px 10px; color:var(--text); font-size:14.5px; outline:none; width:100%; }
 .field-input:focus { border-color:var(--border2); }
 .check-group { display:flex; flex-direction:column; gap:6px; }
@@ -210,7 +209,6 @@ header { display:flex; align-items:flex-end; justify-content:space-between; padd
 input[type="color"] { width:30px; height:24px; border:1px solid var(--border); border-radius:var(--radius-sm); background:none; cursor:pointer; padding:1px; flex-shrink:0; }
 .hint-text { font-size:13px; color:var(--text3); font-style:italic; }
 .section-notice { font-size:11.5px; color:var(--text3); margin:0 0 8px; line-height:1.4; }
-.sel-sm { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:5px 8px; color:var(--text); font-size:14px; outline:none; }
 
 /* ── 캐릭터 이미지 URL ── */
 .speaker-img-row { display:flex; flex-direction:column; gap:4px; padding-bottom:8px; border-bottom:1px solid var(--border); }
@@ -223,13 +221,6 @@ input[type="color"] { width:30px; height:24px; border:1px solid var(--border); b
 .speaker-img-input:focus { border-color:var(--border2); color:var(--text); }
 .speaker-img-input:disabled { opacity:0.4; }
 .speaker-img-thumb.disabled { opacity:0.4; }
-
-/* ── 설정 오버레이 ── */
-.overlay { position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:200; display:flex; align-items:center; justify-content:center; }
-.overlay.hidden { display:none; }
-.overlay-inner { background:var(--bg1); border:1px solid var(--border); border-radius:8px; width:340px; overflow:hidden; }
-.overlay-header { display:flex; justify-content:space-between; align-items:center; padding:14px 16px; border-bottom:1px solid var(--border); font-weight:600; font-size:15px; }
-.overlay-body { padding:16px; display:flex; flex-direction:column; gap:10px; }
 </style>
 </head>
 <body>
@@ -265,9 +256,12 @@ input[type="color"] { width:30px; height:24px; border:1px solid var(--border); b
 
   <!-- 편집 -->
   <section id="panel-edit" class="panel">
-    <div class="toolbar">
-      <input id="search-box" type="text" placeholder="검색…" class="search-box" />
-      <button id="btn-search-clear" class="icon-btn">✕</button>
+    <div class="toolbar" style="display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);">
+      <span></span>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <input id="search-box" type="text" placeholder="검색…" class="search-box" style="max-width:200px;" />
+        <button id="btn-search-clear" class="icon-btn">✕</button>
+      </div>
       <span id="edit-count" class="count-label"></span>
     </div>
     <div id="log-list" class="log-list">
@@ -358,7 +352,7 @@ input[type="color"] { width:30px; height:24px; border:1px solid var(--border); b
 'use strict';
 
 // ── 버전 ──────────────────────────────────────────────────────────
-const VERSION = '2.2.0';
+const VERSION = '2.2.1';
 
 // ── 상태 ──────────────────────────────────────────────────────────
 const S = {
@@ -366,7 +360,6 @@ const S = {
   activeTabs: new Set(),
   outputTabs: new Set(),
   speakerColors: {}, speakerColorsEnabled: {}, tabBgColors: {}, tabBgColorsEnabled: {}, tabBgColorsCustom: {}, speakerImages: {}, speakerImagesEnabled: {},
-  settings: { theme: 'dark' }
 };
 
 // ── DOM 헬퍼 ──────────────────────────────────────────────────────
@@ -550,16 +543,8 @@ function restoreFromEditorHtml(filename, text) {
 
     setStatus('load-status', 'ok', `✅ ${filename} — 에디터 데이터 복원 완료 (v${data.version})`);
 
-    // 편집 탭 로그 목록 복원
-    renderLogList();
-
-    // 출력 탭으로 이동하며 렌더링
-    switchPanel('panel-export');
-    renderOutTabChips();
-    renderSpeakerColors();
-    renderTabBgColors();
-    renderSpeakerImages();
-    doRefreshPreview();
+    // 편집 탭 로그 목록 복원 후 출력 탭으로 이동하며 렌더링
+    goToExportPanelReady();
     return true;
   } catch(err) {
     console.warn('restoreFromEditorHtml failed:', err);
@@ -601,11 +586,18 @@ function processJson(filename, text) {
   processEntries(filename, entries);
 }
 
+// Date 객체를 "YYYY/MM/DD"+"HH:MM:SS"로 변환 (신 JSON/신 HTML 파서 공통)
+function formatDateTime(d) {
+  if (isNaN(d)) return { date: '', time: '' };
+  const date = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+  const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+  return { date, time };
+}
+
 function processJsonV2(filename, raw) {
   const images = raw.images || {};
   let id = 0;
   const entries = raw.messages.map(m => {
-    if (m.type === 'system') return null; // 화자 없는 시스템 알림은 기존과 동일하게 건너뜀
     const name = String(m.name ?? '').trim();
     if (!name) return null;
     const color = String(m.color ?? '#aaaaaa').trim() || '#aaaaaa';
@@ -625,11 +617,7 @@ function processJsonV2(filename, raw) {
 
     let date = '', time = '';
     if (typeof m.createdAt === 'number') {
-      const d = new Date(m.createdAt);
-      if (!isNaN(d)) {
-        date = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
-        time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
-      }
+      ({ date, time } = formatDateTime(new Date(m.createdAt)));
     }
 
     const image = (m.iconImage && images[m.iconImage]) ? images[m.iconImage] : '';
@@ -644,9 +632,10 @@ function processJsonV2(filename, raw) {
   processEntries(filename, entries);
 }
 
-function processText(filename, text) {
+// HTML 파서(구/신 버전)를 받아 공통 처리 (파싱 실패/빈 결과 처리 동일)
+function processTextWith(parseFn, filename, text) {
   try {
-    const entries = parseCcfoliaHtml(text);
+    const entries = parseFn(text);
     if (!entries.length) {
       setStatus('load-status', 'err', '❌ 로그를 찾지 못했습니다.\nccfolia에서 내보낸 .html 파일인지 확인해주세요.');
       return;
@@ -656,19 +645,9 @@ function processText(filename, text) {
     setStatus('load-status', 'err', `❌ 오류: ${err.message}`);
   }
 }
+function processText(filename, text) { processTextWith(parseCcfoliaHtml, filename, text); }
 
-function processTextV2(filename, text) {
-  try {
-    const entries = parseCcfoliaHtmlV2(text);
-    if (!entries.length) {
-      setStatus('load-status', 'err', '❌ 로그를 찾지 못했습니다.\nccfolia에서 내보낸 .html 파일인지 확인해주세요.');
-      return;
-    }
-    processEntries(filename, entries);
-  } catch(err) {
-    setStatus('load-status', 'err', `❌ 오류: ${err.message}`);
-  }
-}
+function processTextV2(filename, text) { processTextWith(parseCcfoliaHtmlV2, filename, text); }
 
 // 신규 CCFOLIA 내보내기 HTML 파서 (message-list / article.message 구조).
 // 탭은 비밀 탭의 경우 data-channel이 임의 내부 ID라 channel-name 라벨(대괄호 벗김)을 우선 사용.
@@ -688,15 +667,13 @@ function parseCcfoliaHtmlV2(htmlText) {
   }
 
   doc.querySelectorAll('article.message').forEach(article => {
-    if (article.classList.contains('system')) return; // 화자 없는 시스템 알림은 건너뜀
-
     const speakerEl = article.querySelector('.speaker');
-    if (!speakerEl) return;
-    const name = speakerEl.textContent.trim();
+    // 시스템 메시지(체력 변동 등)는 화자 요소 자체가 없음 - JSON 형식과 동일하게 "system"으로 대체
+    const name = speakerEl ? speakerEl.textContent.trim() : 'system';
     if (!name) return;
 
-    const colorMatch = (speakerEl.getAttribute('style') || '').match(/--speaker-color:\s*(#[0-9a-fA-F]{3,8}|[a-z]+)/i);
-    const color = colorMatch ? colorMatch[1] : '#aaaaaa';
+    const colorMatch = speakerEl ? (speakerEl.getAttribute('style') || '').match(/--speaker-color:\s*(#[0-9a-fA-F]{3,8}|[a-z]+)/i) : null;
+    const color = colorMatch ? colorMatch[1] : (speakerEl ? '#aaaaaa' : '#888888');
 
     const dataChannel = article.getAttribute('data-channel') || '';
     const channelNameEl = article.querySelector('.channel-name');
@@ -719,11 +696,7 @@ function parseCcfoliaHtmlV2(htmlText) {
     const timeEl = article.querySelector('.timestamp');
     const iso = timeEl ? timeEl.getAttribute('datetime') : null;
     if (iso) {
-      const d = new Date(iso);
-      if (!isNaN(d)) {
-        date = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
-        time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
-      }
+      ({ date, time } = formatDateTime(new Date(iso)));
     }
 
     let image = '';
@@ -763,7 +736,6 @@ function processEntries(filename, entries) {
        <div class="summary-item"><div class="summary-num">${tabs.length}</div><div class="summary-label">탭</div></div>`;
 
     // 탭 칩
-    const TAB_LABEL = { main:'메인', info:'정보', other:'잡담', secret:'비밀' };
     const chipsEl = $('tab-chips');
     chipsEl.innerHTML = '';
     tabs.forEach(tab => {
@@ -784,9 +756,9 @@ function processEntries(filename, entries) {
   }
 }
 
-function applyFilter() {
-  S.filtered = S.entries.filter(e => S.activeTabs.has(e.tab));
-  S.edited = S.filtered.map(e => ({ ...e }));
+// 편집 목록을 그리고 출력 탭으로 이동해서 관련 설정 UI/미리보기를 전부 새로 그린다.
+// (필터 적용 시, 에디터 저장 파일 복원 시 공통으로 필요한 순서)
+function goToExportPanelReady() {
   renderLogList();
   switchPanel('panel-export');
   renderOutTabChips();
@@ -794,6 +766,12 @@ function applyFilter() {
   renderTabBgColors();
   renderSpeakerImages();
   doRefreshPreview();
+}
+
+function applyFilter() {
+  S.filtered = S.entries.filter(e => S.activeTabs.has(e.tab));
+  S.edited = S.filtered.map(e => ({ ...e }));
+  goToExportPanelReady();
 }
 
 // ── 편집 패널 ─────────────────────────────────────────────────────
@@ -813,6 +791,12 @@ function setupEditPanel() {
   // 가상 스크롤: 스크롤/리사이즈 시 보이는 범위만 다시 계산해서 그림
   let scrollScheduled = false;
   $('log-list').addEventListener('scroll', () => {
+    if (S._vInternalScroll) {
+      S._vInternalScroll = false;
+      // 우리가 옮기려던 값과 실제로 일치할 때만 무시 (그 사이 사용자가 추가로 스크롤했으면
+      // 브라우저가 두 변경을 한 이벤트로 합쳐 보고할 수 있는데, 이건 무시하면 안 되는 진짜 스크롤임).
+      if (Math.abs($('log-list').scrollTop - S._vInternalScrollTarget) < 1) return;
+    }
     if (scrollScheduled) return;
     scrollScheduled = true;
     requestAnimationFrame(() => { scrollScheduled = false; renderVisibleLogRows(); });
@@ -848,33 +832,61 @@ function editAreaHeightFor(entry) {
   return estimateEditTextareaHeight(entry.message) + 5 /* .log-edit-area gap */ + EDIT_BTN_ROW_H + EDIT_AREA_GAP;
 }
 
-function logRowType(i) { return S._vList[i].tab === 'other' ? 'other' : 'normal'; }
+// 항목 타입(일반/잡담) 판별과, 실측값 없으면 보정된 기본값을 쓰는 높이 조회 로직은
+// 편집 탭/미리보기가 완전히 동일해서 공용 함수로 뺀다.
+function rowType(list, i) { return list[i].tab === 'other' ? 'other' : 'normal'; }
+function calibratedOrDefault(measuredMap, i, type, calibrated, defaults) {
+  const measured = measuredMap.get(i);
+  if (measured != null) return measured;
+  return calibrated[type] ?? defaults[type];
+}
+
+function logRowType(i) { return rowType(S._vList, i); }
 
 function logRowContentHeight(i) {
-  const measured = S._vMeasured.get(i);
-  const base = measured != null ? measured : (LOG_ROW_H_CALIBRATED[logRowType(i)] ?? LOG_ROW_H[logRowType(i)]);
+  const type = logRowType(i);
+  const base = calibratedOrDefault(S._vMeasured, i, type, LOG_ROW_H_CALIBRATED, LOG_ROW_H);
   const entry = S._vList[i];
   const editOpen = S._vEditOpenIds && S._vEditOpenIds.has(entry.id);
   return base + (editOpen ? editAreaHeightFor(entry) : 0);
 }
 
 // 실측값을 기록하면서, 그 타입(일반/잡담)의 기본 추정치도 이동평균으로 같이 보정
+const LOG_CALIBRATION_SAMPLES = { other: [], normal: [] };
+const LOG_CALIBRATION_TARGET = 12; // 이 개수만큼 모은 뒤 중앙값으로 고정
+
+// 표본을 모아 중앙값으로 기본 추정치를 고정하는 보정 로직 (편집 탭/미리보기 공통 사용).
+// 평균 대신 중앙값을 쓰는 이유: 유난히 길거나 짧은 메시지 한두 개가 우연히 초반 샘플에 섞였을 때
+// 그것 때문에 추정치 전체가 계속 어긋난 채로 남는데(예: 대부분 85px인데 411px짜리 하나 때문에
+// 140으로 고정), 중앙값은 그런 소수의 극단값에 거의 영향을 안 받는다. 목표 개수에 도달한 뒤로는
+// 값을 고정한다 - 계속 갱신하면 아직 안 본 수천 개 항목의 예상 높이가 그때마다 같이 바뀌어서
+// 전체 목록 높이가 크게 출렁이고 스크롤 위치/스크롤바 동작이 불안정해지는 문제가 있었다.
+function medianCalibrate(samplesArr, target, newValue) {
+  if (samplesArr.length >= target) return undefined; // 이미 고정됨
+  samplesArr.push(newValue);
+  if (samplesArr.length !== target) return undefined;
+  const sorted = [...samplesArr].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
+}
+
 function recordLogRowMeasurement(i, realH) {
   S._vMeasured.set(i, realH);
   const type = logRowType(i);
-  LOG_ROW_H_CALIBRATED[type] = LOG_ROW_H_CALIBRATED[type] == null
-    ? realH
-    : Math.round(LOG_ROW_H_CALIBRATED[type] * 0.8 + realH * 0.2);
+  const calibrated = medianCalibrate(LOG_CALIBRATION_SAMPLES[type], LOG_CALIBRATION_TARGET, realH);
+  if (calibrated !== undefined) LOG_ROW_H_CALIBRATED[type] = calibrated;
 }
 
-function computeLogOffsets(list) {
+// 오프셋 배열 계산(편집 탭/미리보기 공통) - 간격과 높이 조회 함수만 다르게 넘겨받는다.
+function computeOffsets(list, gap, heightFn) {
   const offsets = new Array(list.length + 1);
   offsets[0] = 0;
   for (let i = 0; i < list.length; i++) {
-    offsets[i + 1] = offsets[i] + logRowContentHeight(i) + LOG_ROW_GAP;
+    offsets[i + 1] = offsets[i] + heightFn(i) + gap;
   }
   return offsets;
 }
+function computeLogOffsets(list) { return computeOffsets(list, LOG_ROW_GAP, logRowContentHeight); }
 
 function renderLogList(query = '') {
   const container = $('log-list');
@@ -903,13 +915,19 @@ function renderLogList(query = '') {
   spacer.style.pointerEvents = 'none';
   container.appendChild(spacer);
   S._vSpacer = spacer;
+  // 목록이 통째로 바뀌면(검색 포함) 기존 재활용 풀의 인덱스는 이제 다른 항목을 가리키므로 비운다.
+  // container.innerHTML로 DOM은 이미 지워졌지만, 풀 자체를 안 비우면 사라진 엘리먼트를 그대로
+  // 참조해서 재사용하려다가 화면에 반영이 안 되는(비어보이는) 문제가 있었다.
+  S._vElByIdx = new Map();
+  S._vInternalScroll = true;
+  S._vInternalScrollTarget = 0;
   container.scrollTop = 0;
 
   renderVisibleLogRows();
 }
 
-// 이분 탐색: offsets[i] <= y < offsets[i+1]인 i를 찾음
-function findLogRowIndex(offsets, y) {
+// 이분 탐색: offsets[i] <= y < offsets[i+1]인 i를 찾음 (편집 탭/미리보기 공통)
+function findRowIndex(offsets, y) {
   let lo = 0, hi = offsets.length - 2;
   if (hi < 0) return 0;
   while (lo < hi) {
@@ -928,52 +946,74 @@ function renderVisibleLogRows() {
   const viewH = container.clientHeight || 600;
   const BUFFER_PX = 400; // 위아래 여유분 (스크롤이 빨라도 빈 화면이 안 보이게)
 
-  const startIdx = findLogRowIndex(offsets, Math.max(0, scrollTop - BUFFER_PX));
-  const endIdx = Math.min(list.length, findLogRowIndex(offsets, scrollTop + viewH + BUFFER_PX) + 1);
+  const startIdx = findRowIndex(offsets, Math.max(0, scrollTop - BUFFER_PX));
+  const endIdx = Math.min(list.length, findRowIndex(offsets, scrollTop + viewH + BUFFER_PX) + 1);
 
   const [prevStart, prevEnd] = S._vRenderedRange;
   if (startIdx === prevStart && endIdx === prevEnd) return; // 범위 안 바뀌었으면 다시 안 그림
   S._vRenderedRange = [startIdx, endIdx];
 
-  container.querySelectorAll('.log-item').forEach(el => el.remove());
+  if (!S._vElByIdx) S._vElByIdx = new Map();
+
+  // 더 이상 필요 없는 기존 항목들을 재활용 풀로 회수 (DOM에서 떼지 않고 재사용 대기)
+  const pool = [];
+  S._vElByIdx.forEach((el, idx) => {
+    if (idx < startIdx || idx >= endIdx) pool.push(el);
+  });
+  pool.forEach(el => { S._vElByIdx.delete(Number(el.dataset.vIdx)); });
 
   const frag = document.createDocumentFragment();
   const rendered = [];
   for (let i = startIdx; i < endIdx; i++) {
-    const entry = list[i];
-    const el = makeLogItem(entry, S._vIdToIndex.get(entry.id));
-    el.style.top = offsets[i] + 'px';
-    el.dataset.vIdx = i;
-    frag.appendChild(el);
+    let el = S._vElByIdx.get(i);
+    if (!el) {
+      const entry = list[i];
+      if (pool.length) {
+        // 재활용: 기존 DOM 노드를 재사용해서 내용/이벤트만 새 항목 것으로 다시 바인딩 (제거 후 재삽입보다 저렴)
+        el = makeLogItem(entry, S._vIdToIndex.get(entry.id), pool.pop());
+      } else {
+        el = makeLogItem(entry, S._vIdToIndex.get(entry.id));
+      }
+      el.dataset.vIdx = i;
+      S._vElByIdx.set(i, el);
+      if (!el.isConnected) frag.appendChild(el);
+    }
+    // top 대신 transform으로 위치 지정: 레이아웃 재계산 없이 GPU 합성만으로 처리되어 훨씬 가볍다.
+    el.style.transform = `translateY(${offsets[i]}px)`;
     rendered.push([i, el]);
   }
-  container.appendChild(frag);
+  pool.forEach(el => el.remove()); // 재활용 안 된 나머지는 실제로 제거
+  if (frag.childNodes.length) container.appendChild(frag);
 
-  // 실제 렌더링된 콘텐츠 높이를 측정해서, 추정치와 다르면 오프셋을 보정 (겹침/빈틈 방지).
-  // 다음 페인트 이후로 미뤄서 측정 (최초 로드 시 패널이 아직 화면에 완전히 자리잡기 전이면
-  // getBoundingClientRect가 0/부정확한 값을 반환해서 보정이 무시되는 문제를 방지).
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      if (S._vList !== list) return; // 그 사이에 목록이 바뀌었으면(검색 등) 무시
-      let localChanged = false;
-      rendered.forEach(([i, el]) => {
-        if (!el.isConnected) return; // 스크롤 등으로 이미 제거된 항목이면 스킵
-        const entry = list[i];
-        if (S._vEditOpenIds.has(entry.id)) return;
-        const realH = Math.round(el.getBoundingClientRect().height);
-        if (realH > 0 && realH !== logRowContentHeight(i)) { recordLogRowMeasurement(i, realH); localChanged = true; }
-      });
-      if (localChanged) {
-        const newOffsets = computeLogOffsets(list);
-        S._vOffsets = newOffsets;
-        S._vSpacer.style.height = newOffsets[list.length] + 'px';
-        $('log-list').querySelectorAll('.log-item').forEach(itemEl => {
-          const vi = Number(itemEl.dataset.vIdx);
-          if (!Number.isNaN(vi)) itemEl.style.top = newOffsets[vi] + 'px';
-        });
-      }
-    });
+  // 실제 렌더링된 콘텐츠 높이를 즉시(동기적으로) 측정해서 추정치와 다르면 오프셋을 보정 (겹침/빈틈 방지).
+  // getBoundingClientRect()는 호출 시점에 레이아웃을 강제로 계산해주므로 프레임을 기다릴 필요가 없다 -
+  // 오히려 미루면 빠른 스크롤 중 측정 전에 항목이 제거되어 영영 보정 안 되는 문제가 있었다.
+  let localChanged = false;
+  rendered.forEach(([i, el]) => {
+    const entry = list[i];
+    if (S._vEditOpenIds.has(entry.id)) return;
+    const realH = Math.round(el.getBoundingClientRect().height);
+    if (realH > 0 && realH !== logRowContentHeight(i)) { recordLogRowMeasurement(i, realH); localChanged = true; }
   });
+  if (localChanged) {
+    const oldOffsets = offsets;
+    const currentScrollTop = container.scrollTop;
+    // 지금 스크롤 위치가 보정 전 기준 몇 번째 항목 근처인지 찾아서, 그 항목이 보정으로 얼마나
+    // 밀렸는지(delta)를 스크롤 위치에도 반영한다 (안 그러면 위쪽 카드가 보정될 때마다 화면이 튄다).
+    const anchorIdx = findRowIndex(oldOffsets, currentScrollTop);
+    const newOffsets = computeLogOffsets(list);
+    const delta = newOffsets[anchorIdx] - oldOffsets[anchorIdx];
+    S._vOffsets = newOffsets;
+    S._vSpacer.style.height = newOffsets[list.length] + 'px';
+    S._vElByIdx.forEach((itemEl, vi) => {
+      itemEl.style.transform = `translateY(${newOffsets[vi]}px)`;
+    });
+    if (delta !== 0) {
+      S._vInternalScroll = true;
+      S._vInternalScrollTarget = currentScrollTop + delta;
+      container.scrollTop = S._vInternalScrollTarget;
+    }
+  }
 }
 
 // 편집 토글 등으로 높이가 바뀐 뒤에는, 단순히 기존 항목 위치만 재조정하는 게 아니라
@@ -987,12 +1027,28 @@ function forceRerenderVisibleLogRows() {
   renderVisibleLogRows();
 }
 
-function makeLogItem(entry, idx) {
+function makeLogItem(entry, idx, reuseDiv) {
   const isOther = entry.tab === 'other';
   const speakerColor = isOther ? '#808080' : (S.speakerColorsEnabled[entry.key] ? (S.speakerColors[entry.key] ?? entry.color) : entry.color);
-  const div = document.createElement('div');
+  const div = reuseDiv || document.createElement('div');
   div.className = `log-item${entry.hidden ? ' muted' : ''}`;
   const editOpenClass = (S._vEditOpenIds && S._vEditOpenIds.has(entry.id)) ? ' open' : '';
+
+  // 잡담/일반 카드 두 분기가 공통으로 쓰는 조각 (액션 버튼, 편집 영역)
+  const actionsHtml = `
+        <div class="log-actions">
+          <button class="icon-btn" data-a="edit" title="편집">✏️</button>
+          <button class="icon-btn" data-a="hide" title="${entry.hidden?'표시':'숨기기'}">${entry.hidden?'👁':'🚫'}</button>
+          <button class="icon-btn" data-a="del"  title="삭제">🗑</button>
+        </div>`;
+  const editAreaHtml = `
+      <div class="log-edit-area${editOpenClass}">
+        <textarea class="log-textarea">${esc(entry.message)}</textarea>
+        <div class="log-edit-btns">
+          <button class="btn-sm" data-a="cancel">취소</button>
+          <button class="btn-sm" data-a="save">저장</button>
+        </div>
+      </div>`;
 
   if (isOther) {
     div.innerHTML = `
@@ -1002,40 +1058,17 @@ function makeLogItem(entry, idx) {
           <span> : </span>
           <span class="log-body-inline">${esc(entry.message)}</span>
         </span>
-        ${entryTimeLabel(entry) ? `<span class="log-time">${esc(entryTimeLabel(entry))}</span>` : ''}
-        <div class="log-actions">
-          <button class="icon-btn" data-a="edit" title="편집">✏️</button>
-          <button class="icon-btn" data-a="hide" title="${entry.hidden?'표시':'숨기기'}">${entry.hidden?'👁':'🚫'}</button>
-          <button class="icon-btn" data-a="del"  title="삭제">🗑</button>
-        </div>
-      </div>
-      <div class="log-edit-area${editOpenClass}">
-        <textarea class="log-textarea">${esc(entry.message)}</textarea>
-        <div class="log-edit-btns">
-          <button class="btn-sm" data-a="cancel">취소</button>
-          <button class="btn-sm" data-a="save">저장</button>
-        </div>
-      </div>`;
+        ${actionsHtml}
+      </div>${editAreaHtml}`;
   } else {
     div.innerHTML = `
       <div class="log-head">
         <span class="log-speaker" data-key="${esc(entry.key)}" style="color:${esc(speakerColor)}">${esc(entry.name)}</span>
         <span class="log-tab-chip">${esc(entry.tab)}</span>
         ${entryTimeLabel(entry) ? `<span class="log-time">${esc(entryTimeLabel(entry))}</span>` : ''}
-        <div class="log-actions">
-          <button class="icon-btn" data-a="edit" title="편집">✏️</button>
-          <button class="icon-btn" data-a="hide" title="${entry.hidden?'표시':'숨기기'}">${entry.hidden?'👁':'🚫'}</button>
-          <button class="icon-btn" data-a="del"  title="삭제">🗑</button>
-        </div>
+        ${actionsHtml}
       </div>
-      <div class="log-body">${esc(entry.message)}</div>
-      <div class="log-edit-area${editOpenClass}">
-        <textarea class="log-textarea">${esc(entry.message)}</textarea>
-        <div class="log-edit-btns">
-          <button class="btn-sm" data-a="cancel">취소</button>
-          <button class="btn-sm" data-a="save">저장</button>
-        </div>
-      </div>`;
+      <div class="log-body">${esc(entry.message)}</div>${editAreaHtml}`;
   }
 
   const body     = div.querySelector('.log-body, .log-body-inline');
@@ -1134,7 +1167,7 @@ function initPreviewShadow() {
   const shadow = host.attachShadow({ mode: 'open' });
   shadow.innerHTML = `
     <style id="sp-style"></style>
-    <div class="sp-root" id="sp-root" style="height:100%;overflow-y:auto;position:relative;box-sizing:border-box;">
+    <div class="sp-root" id="sp-root" style="height:100%;overflow-y:auto;position:relative;box-sizing:border-box;overflow-anchor:none;">
       <div class="wrap">
         <h1 id="sp-title"></h1>
         <div id="sp-rows" style="position:relative;">
@@ -1151,6 +1184,13 @@ function initPreviewShadow() {
 
   let scrollScheduled = false;
   S._pRootEl.addEventListener('scroll', () => {
+    if (S._pInternalScroll) {
+      S._pInternalScroll = false;
+      // 우리가 옮기려던 값과 실제로 일치할 때만 무시한다. 그 사이 사용자가 추가로 스크롤해서
+      // 값이 달라졌다면(브라우저가 두 변경을 한 이벤트로 합쳐 보고), 그건 무시하면 안 되는
+      // 진짜 사용자 스크롤이므로 정상적으로 아래 로직을 계속 진행시킨다.
+      if (Math.abs(S._pRootEl.scrollTop - S._pInternalScrollTarget) < 1) return;
+    }
     if (scrollScheduled) return;
     scrollScheduled = true;
     requestAnimationFrame(() => { scrollScheduled = false; renderVisiblePreviewRows(); });
@@ -1159,41 +1199,23 @@ function initPreviewShadow() {
   return shadow;
 }
 
-function previewRowType(i) { return S._pList[i].tab === 'other' ? 'other' : 'normal'; }
+function previewRowType(i) { return rowType(S._pList, i); }
 
 function previewRowContentHeight(i) {
-  const measured = S._pMeasured.get(i);
-  if (measured != null) return measured;
-  const type = previewRowType(i);
-  return PREVIEW_ROW_H_CALIBRATED[type] ?? PREVIEW_ROW_H[type];
+  return calibratedOrDefault(S._pMeasured, i, previewRowType(i), PREVIEW_ROW_H_CALIBRATED, PREVIEW_ROW_H);
 }
+
+const PREVIEW_CALIBRATION_SAMPLES = { other: [], normal: [] };
+const PREVIEW_CALIBRATION_TARGET = 12; // 이 개수만큼 모은 뒤 중앙값으로 고정
 
 function recordPreviewRowMeasurement(i, realH) {
   S._pMeasured.set(i, realH);
   const type = previewRowType(i);
-  PREVIEW_ROW_H_CALIBRATED[type] = PREVIEW_ROW_H_CALIBRATED[type] == null
-    ? realH
-    : Math.round(PREVIEW_ROW_H_CALIBRATED[type] * 0.8 + realH * 0.2);
+  const calibrated = medianCalibrate(PREVIEW_CALIBRATION_SAMPLES[type], PREVIEW_CALIBRATION_TARGET, realH);
+  if (calibrated !== undefined) PREVIEW_ROW_H_CALIBRATED[type] = calibrated;
 }
 
-function computePreviewOffsets(list) {
-  const offsets = new Array(list.length + 1);
-  offsets[0] = 0;
-  for (let i = 0; i < list.length; i++) {
-    offsets[i + 1] = offsets[i] + previewRowContentHeight(i) + PREVIEW_ROW_GAP;
-  }
-  return offsets;
-}
-
-function findPreviewRowIndex(offsets, y) {
-  let lo = 0, hi = offsets.length - 2;
-  if (hi < 0) return 0;
-  while (lo < hi) {
-    const mid = (lo + hi) >> 1;
-    if (offsets[mid + 1] <= y) lo = mid + 1; else hi = mid;
-  }
-  return lo;
-}
+function computePreviewOffsets(list) { return computeOffsets(list, PREVIEW_ROW_GAP, previewRowContentHeight); }
 
 let _previewTimer = null;
 // 목록/테마/표시옵션 등 구조적으로 바뀔 때 전체를 다시 계산 (가상 스크롤이라 대용량이어도 빠름).
@@ -1201,6 +1223,21 @@ let _previewTimer = null;
 function doRefreshPreview() {
   clearTimeout(_previewTimer);
   _previewTimer = setTimeout(renderPreviewList, 0);
+}
+
+// 캐릭터 색상/탭 배경색 설정을 CSS 변수 선언 목록으로 변환 (미리보기/다운로드 공통)
+function computeRootVarDecls(keyCssIdx, tabCssIdx) {
+  const rootVarDecls = [];
+  Object.keys(keyCssIdx).forEach(key => {
+    if (S.speakerColorsEnabled[key] !== false) {
+      const c = S.speakerColors[key];
+      if (c) rootVarDecls.push(`--ck${keyCssIdx[key]}:${c}`);
+    }
+  });
+  Object.keys(tabCssIdx).forEach(tab => {
+    if (S.tabBgColorsEnabled[tab] && S.tabBgColors[tab]) rootVarDecls.push(`--tbg${tabCssIdx[tab]}:${S.tabBgColors[tab]}`);
+  });
+  return rootVarDecls;
 }
 
 function renderPreviewList() {
@@ -1232,16 +1269,7 @@ function renderPreviewList() {
   S._keyCssIdx = keyCssIdx;
   S._tabCssIdx = tabCssIdx;
 
-  const rootVarDecls = [];
-  Object.keys(keyCssIdx).forEach(key => {
-    if (S.speakerColorsEnabled[key] !== false) {
-      const c = S.speakerColors[key];
-      if (c) rootVarDecls.push(`--ck${keyCssIdx[key]}:${c}`);
-    }
-  });
-  Object.keys(tabCssIdx).forEach(tab => {
-    if (S.tabBgColorsEnabled[tab] && S.tabBgColors[tab]) rootVarDecls.push(`--tbg${tabCssIdx[tab]}:${S.tabBgColors[tab]}`);
-  });
+  const rootVarDecls = computeRootVarDecls(keyCssIdx, tabCssIdx);
 
   S._pStyleEl.textContent = previewCssBlock(theme, rootVarDecls, ':host');
   S._pTitleEl.textContent = title;
@@ -1252,6 +1280,10 @@ function renderPreviewList() {
   S._pOffsets = computePreviewOffsets(list);
   S._pRenderedRange = [-1, -1];
   S._pSpacer.style.height = S._pOffsets[list.length] + 'px';
+  // 목록이 통째로 바뀌면 기존 재활용 풀의 인덱스는 이제 다른 항목을 가리키므로 전부 비운다.
+  if (S._pElByIdx) { S._pElByIdx.forEach(el => el.remove()); S._pElByIdx.clear(); } else { S._pElByIdx = new Map(); }
+  S._pInternalScroll = true;
+  S._pInternalScrollTarget = 0;
   S._pRootEl.scrollTop = 0;
 
   renderVisiblePreviewRows();
@@ -1262,6 +1294,7 @@ function renderVisiblePreviewRows() {
   const list = S._pList;
   if (!list.length) {
     S._pRowsEl.querySelectorAll('.entry').forEach(el => el.remove());
+    if (S._pElByIdx) S._pElByIdx.clear();
     return;
   }
   const offsets = S._pOffsets;
@@ -1269,56 +1302,88 @@ function renderVisiblePreviewRows() {
   const viewH = S._pRootEl.clientHeight || 600;
   const BUFFER_PX = 600;
 
-  const startIdx = findPreviewRowIndex(offsets, Math.max(0, scrollTop - BUFFER_PX));
-  const endIdx = Math.min(list.length, findPreviewRowIndex(offsets, scrollTop + viewH + BUFFER_PX) + 1);
+  const startIdx = findRowIndex(offsets, Math.max(0, scrollTop - BUFFER_PX));
+  const endIdx = Math.min(list.length, findRowIndex(offsets, scrollTop + viewH + BUFFER_PX) + 1);
 
   const [prevStart, prevEnd] = S._pRenderedRange;
   if (startIdx === prevStart && endIdx === prevEnd) return;
   S._pRenderedRange = [startIdx, endIdx];
 
-  S._pRowsEl.querySelectorAll('.entry').forEach(el => el.remove());
-
+  if (!S._pElByIdx) S._pElByIdx = new Map();
   const keyIdxLookup = key => S._keyCssIdx[key];
   const tabIdxLookup = tab => S._tabCssIdx[tab];
 
+  // 더 이상 필요 없는 기존 항목들을 재활용 풀로 회수 (DOM에서 떼지 않고 재사용 대기)
+  const pool = [];
+  S._pElByIdx.forEach((el, idx) => {
+    if (idx < startIdx || idx >= endIdx) pool.push(el);
+  });
+  pool.forEach(el => { S._pElByIdx.delete(Number(el.dataset.pIdx)); });
+
+  const tmpParser = document.createElement('div');
   const frag = document.createDocumentFragment();
   const rendered = [];
   for (let i = startIdx; i < endIdx; i++) {
-    const e = list[i];
-    const tmp = document.createElement('div');
-    tmp.innerHTML = renderEntryHtml(e, keyIdxLookup, tabIdxLookup);
-    const el = tmp.firstElementChild;
-    el.style.position = 'absolute';
-    el.style.left = '0';
-    el.style.right = '0';
-    el.style.top = offsets[i] + 'px';
-    el.dataset.pIdx = i;
-    frag.appendChild(el);
+    let el = S._pElByIdx.get(i);
+    if (!el) {
+      const e = list[i];
+      tmpParser.innerHTML = renderEntryHtml(e, keyIdxLookup, tabIdxLookup);
+      const fresh = tmpParser.firstElementChild;
+      if (pool.length) {
+        // 재활용: 기존 DOM 노드의 클래스/스타일/내용만 새 항목 것으로 교체 (제거 후 재삽입보다 저렴).
+        // 모든 카드 템플릿(entry/entry-dice/entry-inline)이 전부 <div>라서 안전하게 재사용 가능.
+        el = pool.pop();
+        el.className = fresh.className;
+        el.setAttribute('style', fresh.getAttribute('style') || '');
+        el.innerHTML = fresh.innerHTML;
+      } else {
+        el = fresh;
+      }
+      // setAttribute('style', ...)가 위치 스타일까지 지워버리므로(재활용 케이스), 매번 다시 적용한다.
+      el.style.position = 'absolute';
+      el.style.left = '0';
+      el.style.right = '0';
+      el.style.top = '0px';
+      el.dataset.pIdx = i;
+      S._pElByIdx.set(i, el);
+      if (!el.isConnected) frag.appendChild(el);
+    }
+    // top 대신 transform으로 위치 지정: 레이아웃 재계산 없이 GPU 합성만으로 처리되어 훨씬 가볍다.
+    el.style.transform = `translateY(${offsets[i]}px)`;
     rendered.push([i, el]);
   }
-  S._pRowsEl.appendChild(frag);
+  pool.forEach(el => el.remove()); // 재활용 안 된 나머지는 실제로 제거
+  if (frag.childNodes.length) S._pRowsEl.appendChild(frag);
 
-  // 실제 렌더링된 높이를 다음 페인트 이후 측정해서 추정치와 다르면 보정 (편집 탭과 동일한 원리)
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      if (S._pList !== list) return;
-      let changed = false;
-      rendered.forEach(([i, el]) => {
-        if (!el.isConnected) return;
-        const realH = Math.round(el.getBoundingClientRect().height);
-        if (realH > 0 && realH !== previewRowContentHeight(i)) { recordPreviewRowMeasurement(i, realH); changed = true; }
-      });
-      if (changed) {
-        const newOffsets = computePreviewOffsets(list);
-        S._pOffsets = newOffsets;
-        S._pSpacer.style.height = newOffsets[list.length] + 'px';
-        S._pRowsEl.querySelectorAll('.entry').forEach(itemEl => {
-          const vi = Number(itemEl.dataset.pIdx);
-          if (!Number.isNaN(vi)) itemEl.style.top = newOffsets[vi] + 'px';
-        });
-      }
-    });
+  // 실제 렌더링된 높이를 즉시(동기적으로) 측정해서 추정치와 다르면 보정.
+  // getBoundingClientRect()는 호출 시점에 브라우저가 레이아웃을 강제로 계산해주므로 프레임을
+  // 기다릴 필요가 없다 - 오히려 다음 프레임까지 미루면, 빠르게 스크롤할 때 이 카드가 측정 전에
+  // 이미 화면 밖으로 밀려나 제거되어 버려서 그 카드의 높이가 영영 보정 안 되는 문제가 있었다.
+  let changed = false;
+  rendered.forEach(([i, el]) => {
+    const realH = Math.round(el.getBoundingClientRect().height);
+    if (realH > 0 && realH !== previewRowContentHeight(i)) { recordPreviewRowMeasurement(i, realH); changed = true; }
   });
+  if (changed) {
+    const oldOffsets = S._pOffsets;
+    const currentScrollTop = S._pRootEl.scrollTop;
+    // 지금 스크롤 위치가 "보정 전" 기준으로 몇 번째 항목 근처인지 찾아서, 그 항목의 위치가
+    // 보정으로 인해 얼마나 밀렸는지(delta)를 스크롤 위치에도 그대로 반영한다.
+    // 이렇게 안 하면 위쪽 카드 높이가 보정될 때마다 지금 보던 화면이 위아래로 튄다.
+    const anchorIdx = findRowIndex(oldOffsets, currentScrollTop);
+    const newOffsets = computePreviewOffsets(list);
+    const delta = newOffsets[anchorIdx] - oldOffsets[anchorIdx];
+    S._pOffsets = newOffsets;
+    S._pSpacer.style.height = newOffsets[list.length] + 'px';
+    S._pElByIdx.forEach((itemEl, vi) => {
+      itemEl.style.transform = `translateY(${newOffsets[vi]}px)`;
+    });
+    if (delta !== 0) {
+      S._pInternalScroll = true;
+      S._pInternalScrollTarget = currentScrollTop + delta;
+      S._pRootEl.scrollTop = S._pInternalScrollTarget;
+    }
+  }
 }
 
 // ── 미리보기 즉시 패치 (전체 재생성 없이) ──────────────────────────
@@ -1449,6 +1514,15 @@ function exportOpts() {
   return { title: $('out-title').value || 'CCFOLIA LOG', theme: $('out-theme').value, showTab: $('opt-tab').checked, showImg: $('opt-img').checked, showDate: $('opt-date').checked, entries: S.edited.filter(e => !e.hidden && S.outputTabs.has(e.tab)) };
 }
 
+// 탭 이름 한글 표시, 정렬 순서(메인/정보/잡담 우선, 나머지는 가나다순) - 여러 곳에서 공통 사용
+const TAB_LABEL = { main:'메인', info:'정보', other:'잡담', secret:'비밀' };
+const TAB_ORDER = ['main','info','other'];
+function sortedOutputTabs(tabs) {
+  const priority = tabs.filter(t => TAB_ORDER.includes(t)).sort((a,b) => TAB_ORDER.indexOf(a)-TAB_ORDER.indexOf(b));
+  const rest = tabs.filter(t => !TAB_ORDER.includes(t)).sort((a,b) => a.localeCompare(b,'ko'));
+  return [...priority, ...rest];
+}
+
 function renderOutTabChips() {
   const c = $('out-tab-chips');
   const tabs = [...new Set(S.edited.map(e => e.tab))];
@@ -1456,11 +1530,7 @@ function renderOutTabChips() {
   // outputTabs를 현재 edited의 탭으로 동기화 (새로 진입 시)
   tabs.forEach(t => { if (!S.outputTabs.has(t) && S.outputTabs.size === 0) S.outputTabs.add(t); });
   c.innerHTML = '';
-  const TAB_LABEL = { main:'메인', info:'정보', other:'잡담', secret:'비밀' };
-  const TAB_ORDER = ['main','info','other'];
-  const priority = tabs.filter(t => TAB_ORDER.includes(t)).sort((a,b) => TAB_ORDER.indexOf(a)-TAB_ORDER.indexOf(b));
-  const rest = tabs.filter(t => !TAB_ORDER.includes(t)).sort((a,b) => a.localeCompare(b,'ko'));
-  const sortedTabs = [...priority, ...rest];
+  const sortedTabs = sortedOutputTabs(tabs);
   sortedTabs.forEach(tab => {
     const btn = document.createElement('button');
     btn.className = 'chip' + (S.outputTabs.has(tab) ? ' on' : '');
@@ -1548,11 +1618,7 @@ function renderTabBgColors() {
   const tabs = [...new Set(S.edited.map(e=>e.tab))];
   if (!tabs.length) { c.innerHTML='<span class="hint-text">로그를 불러오면 표시됩니다.</span>'; return; }
   c.innerHTML = '';
-  const TAB_LABEL = { main:'메인', info:'정보', other:'잡담', secret:'비밀' };
-  const TAB_ORDER = ['main','info','other'];
-  const priority = tabs.filter(t => TAB_ORDER.includes(t)).sort((a,b) => TAB_ORDER.indexOf(a)-TAB_ORDER.indexOf(b));
-  const rest = tabs.filter(t => !TAB_ORDER.includes(t)).sort((a,b) => a.localeCompare(b,'ko'));
-  const sortedTabs = [...priority, ...rest];
+  const sortedTabs = sortedOutputTabs(tabs);
   sortedTabs.forEach(tab => {
     const row = document.createElement('div'); row.className='speaker-row';
     const enabled = !!S.tabBgColorsEnabled[tab];
@@ -1702,6 +1768,9 @@ function renderEntryHtml(e, keyIdx, tabIdx, imgIdx) {
   if (e.tab === 'other') {
     return `<div class="entry entry-inline" style="background:var(--tbg${tIdx}, var(--card))"><span class="speaker-inline"><span class="speaker-other">${esc(e.name)}</span><span class="sep"> : </span><span class="body-inline">${msg}</span></span></div>`;
   }
+  if (e.name === 'system') {
+    return `<div class="entry entry-dice" style="background:var(--tbg${tIdx}, transparent)"><span class="dice-name">${esc(e.name)}</span><span class="dice-body" style="color:${e.color}">${msg}</span></div>`;
+  }
   const kIdx = keyIdx(e.key);
   const badge = `<span class="badge">${esc(e.tab)}</span>`;
   const timeTag = entryTimeLabel(e) ? `<span class="entry-time">${esc(entryTimeLabel(e))}</span>` : '';
@@ -1837,18 +1906,7 @@ function buildOutputHtml({ title, theme, showTab, showImg, showDate, entries, up
     tabBgColorsCustom: S.tabBgColorsCustom,
   });
 
-  const rootVarDecls = [];
-  Object.keys(keyCssIdx).forEach(key => {
-    if (S.speakerColorsEnabled[key] !== false) {
-      const c = S.speakerColors[key];
-      if (c) rootVarDecls.push(`--ck${keyCssIdx[key]}:${c}`);
-    }
-  });
-  Object.keys(tabCssIdx).forEach(tab => {
-    if (S.tabBgColorsEnabled[tab] && S.tabBgColors[tab]) {
-      rootVarDecls.push(`--tbg${tabCssIdx[tab]}:${S.tabBgColors[tab]}`);
-    }
-  });
+  const rootVarDecls = computeRootVarDecls(keyCssIdx, tabCssIdx);
 
   if (updateIndexMap) {
     S._keyCssIdx = keyCssIdx;
