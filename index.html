@@ -77,6 +77,8 @@ header { display:flex; align-items:flex-end; justify-content:space-between; padd
 .btn-sm:hover { background:var(--bg3); color:var(--text); }
 .icon-btn { background:none; border:none; color:var(--text2); cursor:pointer; padding:4px 6px; font-size:17px; border-radius:var(--radius-sm); transition:var(--trans); }
 .icon-btn:hover { color:var(--text); background:var(--bg2); }
+.icon-btn.icon-btn-fixed { width:28px; height:28px; padding:0; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }
+.icon-btn.icon-btn-fixed svg { width:16px; height:16px; }
 .mt { margin-top:6px; }
 
 /* ── 툴바 ── */
@@ -95,6 +97,8 @@ header { display:flex; align-items:flex-end; justify-content:space-between; padd
 
 /* ── 로그 아이템 (가상 스크롤에서 absolute로 배치됨) ── */
 .log-item { position:absolute; left:0; right:0; width:calc(100% - 8px); max-width:720px; margin:0 auto; top:0; box-sizing:border-box; background:var(--bg1); border:1px solid var(--border); border-radius:var(--radius); padding:10px 14px; }
+mark.search-mark { background:#f5a623; color:#1a1a1a; border-radius:2px; padding:0 1px; }
+mark.search-mark-current { background:#ff7a1a; color:#fff; }
 .log-item.muted { opacity:.4; }
 .log-head { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
 .log-speaker { font-size:14.5px; font-weight:600; }
@@ -260,7 +264,9 @@ input[type="color"] { width:30px; height:24px; border:1px solid var(--border); b
       <span></span>
       <div style="display:flex; align-items:center; gap:6px;">
         <input id="search-box" type="text" placeholder="검색…" class="search-box" style="max-width:200px;" />
-        <button id="btn-search-clear" class="icon-btn">✕</button>
+        <button id="btn-search-prev" class="icon-btn icon-btn-fixed" title="이전 결과"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:19px;height:19px;"><path d="M7 15l5-6 5 6"/></svg></button>
+        <button id="btn-search-next" class="icon-btn icon-btn-fixed" title="다음 결과"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:19px;height:19px;"><path d="M7 9l5 6 5-6"/></svg></button>
+        <button id="btn-search-clear" class="icon-btn icon-btn-fixed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
       </div>
       <span id="edit-count" class="count-label"></span>
     </div>
@@ -333,7 +339,9 @@ input[type="color"] { width:30px; height:24px; border:1px solid var(--border); b
         <span class="field-label" style="font-size:13px">미리보기</span>
         <div style="display:flex; align-items:center; gap:6px;">
           <input id="preview-search-box" type="text" placeholder="검색…" class="search-box" style="max-width:200px;" />
-          <button id="btn-preview-search-clear" class="icon-btn">✕</button>
+          <button id="btn-preview-search-prev" class="icon-btn icon-btn-fixed" title="이전 결과"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:19px;height:19px;"><path d="M7 15l5-6 5 6"/></svg></button>
+          <button id="btn-preview-search-next" class="icon-btn icon-btn-fixed" title="다음 결과"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:19px;height:19px;"><path d="M7 9l5 6 5-6"/></svg></button>
+          <button id="btn-preview-search-clear" class="icon-btn icon-btn-fixed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
           <span id="preview-search-count" class="count-label"></span>
         </div>
       </div>
@@ -352,7 +360,7 @@ input[type="color"] { width:30px; height:24px; border:1px solid var(--border); b
 'use strict';
 
 // ── 버전 ──────────────────────────────────────────────────────────
-const VERSION = '2.2.1';
+const VERSION = '2.2.2';
 
 // ── 상태 ──────────────────────────────────────────────────────────
 const S = {
@@ -775,17 +783,128 @@ function applyFilter() {
 }
 
 // ── 편집 패널 ─────────────────────────────────────────────────────
+// ── 찾기(Ctrl+F 스타일) 검색: 목록을 필터링하지 않고, 일치하는 위치로 이동 + 강조만 한다.
+// 편집 탭/미리보기가 완전히 같은 로직을 쓰되, 각자의 상태(목록/오프셋/스크롤 대상 등)만 다르다.
+// ── 찾기(Ctrl+F 스타일) 검색: 카드 DOM을 추적해서 강조하지 않고, 카드를 그릴 때마다
+// 메시지/이름 텍스트 안의 일치 부분을 <mark>로 감싸서 표시한다. 카드 전체에 클래스를 붙이는
+// 방식은 가상 스크롤이 DOM 노드를 계속 재활용하는 것과 부딪혀서(재활용된 카드가 엉뚱하게
+// 강조되는 등) 경합 문제가 반복됐는데, 텍스트 자체에 반영하면 카드가 항상 "지금 인덱스에
+// 맞는 내용"으로 새로 그려지므로 그런 문제 자체가 구조적으로 발생할 수 없다.
+const searchState = {
+  log:     { query: '', matches: [], current: 0 },
+  preview: { query: '', matches: [], current: 0 },
+};
+function searchContext(kind) {
+  if (kind === 'log') {
+    return {
+      list: () => S._vList, offsets: () => S._vOffsets, scrollEl: () => $('log-list'),
+      elByIdx: () => S._vElByIdx, countEl: () => $('edit-count'),
+      forceRerender: () => { S._vRenderedRange = [-1, -1]; renderVisibleLogRows(); },
+      setInternalScroll: (v, target) => { S._vInternalScroll = v; S._vInternalScrollTarget = target; },
+    };
+  }
+  return {
+    list: () => S._pList, offsets: () => S._pOffsets, scrollEl: () => S._pRootEl,
+    elByIdx: () => S._pElByIdx, countEl: () => $('preview-search-count'),
+    forceRerender: () => { S._pRenderedRange = [-1, -1]; renderVisiblePreviewRows(); },
+    setInternalScroll: (v, target) => { S._pInternalScroll = v; S._pInternalScrollTarget = target; },
+  };
+}
+function computeSearchMatches(list, query) {
+  if (!query || !list) return [];
+  const matches = [];
+  list.forEach((e, i) => { if (e.name.includes(query) || e.message.includes(query)) matches.push(i); });
+  return matches;
+}
+function isCurrentSearchMatch(kind, idx) {
+  const st = searchState[kind];
+  return !!st.query && st.matches.length > 0 && st.matches[st.current] === idx;
+}
+// esc() 이후(HTML 이스케이프된) 텍스트 안에서, 같은 방식으로 이스케이프한 검색어를 찾아
+// <mark>로 감싼다. 현재 위치(카드)면 더 진한 스타일, 그 외 일치 카드는 옅은 스타일을 쓴다.
+function highlightMatchesInText(escapedText, query, isCurrent) {
+  if (!query) return escapedText;
+  const escQuery = esc(query);
+  if (!escQuery) return escapedText;
+  const re = new RegExp(escQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+  const cls = isCurrent ? 'search-mark search-mark-current' : 'search-mark';
+  return escapedText.replace(re, m => `<mark class="${cls}">${m}</mark>`);
+}
+// 검색 상태가 바뀌면(질의 변경/이동/초기화) 화면에 보이는 카드들의 내용을 강제로 다시 그려서
+// <mark> 강조가 최신 상태로 반영되게 한다 (재활용 풀에 있던 헌 DOM은 버리고 새로 만듦).
+function refreshVisibleContentForSearch(kind) {
+  const ctx = searchContext(kind);
+  const elMap = ctx.elByIdx();
+  if (elMap) { elMap.forEach(el => el.remove()); elMap.clear(); }
+  ctx.forceRerender();
+}
+function runSearch(kind, query) {
+  const st = searchState[kind];
+  st.query = query;
+  st.matches = computeSearchMatches(searchContext(kind).list(), query);
+  st.current = 0;
+  updateSearchCount(kind);
+  if (st.matches.length) scrollToSearchMatch(kind);
+  else refreshVisibleContentForSearch(kind);
+}
+function goToSearchMatch(kind, direction) {
+  const st = searchState[kind];
+  if (!st.matches.length) return;
+  const n = st.matches.length;
+  st.current = ((st.current + direction) % n + n) % n;
+  updateSearchCount(kind);
+  scrollToSearchMatch(kind);
+}
+function scrollToSearchMatch(kind) {
+  const st = searchState[kind];
+  const ctx = searchContext(kind);
+  const idx = st.matches[st.current];
+  const offsets = ctx.offsets();
+  const scrollEl = ctx.scrollEl();
+  const viewH = scrollEl.clientHeight || 600;
+  const rowTop = offsets[idx];
+  const rowBottom = offsets[idx + 1];
+
+  // 이미 화면 안에 전부 보이면(브라우저 Ctrl+F와 동일하게) 스크롤을 하지 않고 강조만 옮긴다.
+  const alreadyVisible = rowTop >= scrollEl.scrollTop && rowBottom <= scrollEl.scrollTop + viewH;
+  if (!alreadyVisible) {
+    const target = Math.max(0, rowTop - 40);
+    ctx.setInternalScroll(true, target);
+    scrollEl.scrollTop = target;
+  }
+  refreshVisibleContentForSearch(kind);
+}
+function updateSearchCount(kind) {
+  const st = searchState[kind];
+  const el = searchContext(kind).countEl();
+  if (!st.query) { el.textContent = ''; return; }
+  el.textContent = st.matches.length ? `${st.current + 1}/${st.matches.length}` : '0/0';
+}
+function clearSearch(kind) {
+  const st = searchState[kind];
+  st.query = ''; st.matches = []; st.current = 0;
+  updateSearchCount(kind);
+  refreshVisibleContentForSearch(kind);
+}
+function runLogSearch() { runSearch('log', $('search-box').value.trim()); }
+function runPreviewSearch() { runSearch('preview', $('preview-search-box').value.trim()); }
+
 function setupEditPanel() {
   const sb = $('search-box');
   let searchTimer = null;
   sb.addEventListener('input', () => {
     clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => renderLogList(sb.value.trim()), 200);
+    searchTimer = setTimeout(runLogSearch, 200);
   });
+  sb.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); goToSearchMatch('log', e.shiftKey ? -1 : 1); }
+  });
+  $('btn-search-next').addEventListener('click', () => goToSearchMatch('log', 1));
+  $('btn-search-prev').addEventListener('click', () => goToSearchMatch('log', -1));
   $('btn-search-clear').addEventListener('click', () => {
     clearTimeout(searchTimer);
     sb.value = '';
-    renderLogList();
+    clearSearch('log');
   });
 
   // 가상 스크롤: 스크롤/리사이즈 시 보이는 범위만 다시 계산해서 그림
@@ -888,16 +1007,15 @@ function computeOffsets(list, gap, heightFn) {
 }
 function computeLogOffsets(list) { return computeOffsets(list, LOG_ROW_GAP, logRowContentHeight); }
 
-function renderLogList(query = '') {
+function renderLogList() {
   const container = $('log-list');
+  if ($('search-box')) $('search-box').value = '';
+  clearSearch('log');
   if (!S.edited.length) {
     container.innerHTML = '<p class="empty-msg">로그를 먼저 불러오세요.</p>';
-    $('edit-count').textContent = ''; return;
+    return;
   }
-  const list = query
-    ? S.edited.filter(e => e.name.includes(query) || e.message.includes(query))
-    : S.edited;
-  $('edit-count').textContent = `${list.length}개`;
+  const list = S.edited;
 
   const idToIndex = new Map();
   S.edited.forEach((e, i) => idToIndex.set(e.id, i));
@@ -1034,12 +1152,19 @@ function makeLogItem(entry, idx, reuseDiv) {
   div.className = `log-item${entry.hidden ? ' muted' : ''}`;
   const editOpenClass = (S._vEditOpenIds && S._vEditOpenIds.has(entry.id)) ? ' open' : '';
 
+  // 검색 중이면 이름/메시지 표시(편집용 textarea 제외)에 일치 부분을 <mark>로 강조한다.
+  const isCurrentMatch = isCurrentSearchMatch('log', idx);
+  const nameHtml = highlightMatchesInText(esc(entry.name), searchState.log.query, isCurrentMatch);
+  const messageHtml = highlightMatchesInText(esc(entry.message), searchState.log.query, isCurrentMatch);
+
   // 잡담/일반 카드 두 분기가 공통으로 쓰는 조각 (액션 버튼, 편집 영역)
   const actionsHtml = `
         <div class="log-actions">
-          <button class="icon-btn" data-a="edit" title="편집">✏️</button>
-          <button class="icon-btn" data-a="hide" title="${entry.hidden?'표시':'숨기기'}">${entry.hidden?'👁':'🚫'}</button>
-          <button class="icon-btn" data-a="del"  title="삭제">🗑</button>
+          <button class="icon-btn icon-btn-fixed" data-a="edit" title="편집"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+          <button class="icon-btn icon-btn-fixed" data-a="hide" title="${entry.hidden?'표시':'숨기기'}">${entry.hidden
+            ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>'
+            : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a19.87 19.87 0 0 1 5.06-5.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a19.87 19.87 0 0 1-2.26 3.36M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>'}</button>
+          <button class="icon-btn icon-btn-fixed" data-a="del"  title="삭제"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6M14 11v6"/></svg></button>
         </div>`;
   const editAreaHtml = `
       <div class="log-edit-area${editOpenClass}">
@@ -1054,21 +1179,21 @@ function makeLogItem(entry, idx, reuseDiv) {
     div.innerHTML = `
       <div class="log-head">
         <span class="log-inline">
-          <span class="log-speaker-inline">${esc(entry.name)}</span>
+          <span class="log-speaker-inline">${nameHtml}</span>
           <span> : </span>
-          <span class="log-body-inline">${esc(entry.message)}</span>
+          <span class="log-body-inline">${messageHtml}</span>
         </span>
         ${actionsHtml}
       </div>${editAreaHtml}`;
   } else {
     div.innerHTML = `
       <div class="log-head">
-        <span class="log-speaker" data-key="${esc(entry.key)}" style="color:${esc(speakerColor)}">${esc(entry.name)}</span>
+        <span class="log-speaker" data-key="${esc(entry.key)}" style="color:${esc(speakerColor)}">${nameHtml}</span>
         <span class="log-tab-chip">${esc(entry.tab)}</span>
         ${entryTimeLabel(entry) ? `<span class="log-time">${esc(entryTimeLabel(entry))}</span>` : ''}
         ${actionsHtml}
       </div>
-      <div class="log-body">${esc(entry.message)}</div>${editAreaHtml}`;
+      <div class="log-body">${messageHtml}</div>${editAreaHtml}`;
   }
 
   const body     = div.querySelector('.log-body, .log-body-inline');
@@ -1098,12 +1223,12 @@ function makeLogItem(entry, idx, reuseDiv) {
   };
   div.querySelector('[data-a="hide"]').onclick = () => {
     S.edited[idx].hidden = !S.edited[idx].hidden;
-    renderLogList($('search-box').value.trim());
+    renderLogList();
     doRefreshPreview();
   };
   div.querySelector('[data-a="del"]').onclick = () => {
     S.edited.splice(idx, 1);
-    renderLogList($('search-box').value.trim());
+    renderLogList();
     doRefreshPreview();
   };
   return div;
@@ -1132,21 +1257,22 @@ function setupPreviewPanel() {
   $('out-title').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); patchTitle($('out-title').value || 'CCFOLIA LOG'); } });
   $('out-title').addEventListener('blur', () => patchTitle($('out-title').value || 'CCFOLIA LOG'));
 
-  // 미리보기 검색 (필터형: 일치하는 메시지만 남기고 나머지는 제외)
+  // 미리보기 찾기(Ctrl+F 스타일): 목록은 그대로 두고 일치 위치로 이동 + 강조만 한다
   const psb = $('preview-search-box');
   let previewSearchTimer = null;
   psb.addEventListener('input', () => {
     clearTimeout(previewSearchTimer);
-    previewSearchTimer = setTimeout(() => {
-      S._pSearchQuery = psb.value.trim();
-      renderPreviewList();
-    }, 200);
+    previewSearchTimer = setTimeout(runPreviewSearch, 200);
   });
+  psb.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); goToSearchMatch('preview', e.shiftKey ? -1 : 1); }
+  });
+  $('btn-preview-search-next').addEventListener('click', () => goToSearchMatch('preview', 1));
+  $('btn-preview-search-prev').addEventListener('click', () => goToSearchMatch('preview', -1));
   $('btn-preview-search-clear').addEventListener('click', () => {
     clearTimeout(previewSearchTimer);
     psb.value = '';
-    S._pSearchQuery = '';
-    renderPreviewList();
+    clearSearch('preview');
   });
 }
 
@@ -1243,29 +1369,22 @@ function computeRootVarDecls(keyCssIdx, tabCssIdx) {
 function renderPreviewList() {
   const shadow = initPreviewShadow();
   if (!shadow) return;
+  if ($('preview-search-box')) $('preview-search-box').value = '';
+  clearSearch('preview');
 
   const title = $('out-title').value || 'CCFOLIA LOG';
   const theme = $('out-theme').value;
   const showTab = $('opt-tab').checked;
   const showImg = $('opt-img').checked;
   const showDate = $('opt-date').checked;
-  const query = S._pSearchQuery || '';
-  const fullList = S.edited.filter(e => !e.hidden && S.outputTabs.has(e.tab));
-  const list = query
-    ? fullList.filter(e => e.name.includes(query) || e.message.includes(query))
-    : fullList;
+  const list = S.edited.filter(e => !e.hidden && S.outputTabs.has(e.tab));
 
-  const countEl = $('preview-search-count');
-  if (countEl) countEl.textContent = query ? `${list.length}개 일치` : '';
-
-  // 색상/탭배경 CSS 변수 인덱스는 검색 필터와 무관하게 "탭 표시 기준 전체 목록"으로 계산한다.
-  // 검색 결과만으로 인덱스를 매기면 검색 상태에 따라 같은 캐릭터의 번호가 바뀌어서,
-  // 필터링 중 바꾼 색이 필터를 풀면 다른 캐릭터에 적용되는 버그가 생긴다.
+  // 색상/탭배경 CSS 변수 인덱스 계산
   const keyCssIdx = {};
   const tabCssIdx = {};
   function keyIdx(key) { if (!(key in keyCssIdx)) keyCssIdx[key] = Object.keys(keyCssIdx).length; return keyCssIdx[key]; }
   function tabIdx(tab) { if (!(tab in tabCssIdx)) tabCssIdx[tab] = Object.keys(tabCssIdx).length; return tabCssIdx[tab]; }
-  fullList.forEach(e => { tabIdx(e.tab); if (e.tab !== 'other') keyIdx(e.key); });
+  list.forEach(e => { tabIdx(e.tab); if (e.tab !== 'other') keyIdx(e.key); });
   S._keyCssIdx = keyCssIdx;
   S._tabCssIdx = tabCssIdx;
 
@@ -1327,7 +1446,7 @@ function renderVisiblePreviewRows() {
     let el = S._pElByIdx.get(i);
     if (!el) {
       const e = list[i];
-      tmpParser.innerHTML = renderEntryHtml(e, keyIdxLookup, tabIdxLookup);
+      tmpParser.innerHTML = renderEntryHtml(e, keyIdxLookup, tabIdxLookup, undefined, i);
       const fresh = tmpParser.firstElementChild;
       if (pool.length) {
         // 재활용: 기존 DOM 노드의 클래스/스타일/내용만 새 항목 것으로 교체 (제거 후 재삽입보다 저렴).
@@ -1761,15 +1880,20 @@ const DICE_COLOR = {
 
 // 항목 하나의 HTML을 생성 (미리보기 Shadow DOM과 다운로드 정적 파일이 완전히 같은 마크업을 쓰게 함).
 // keyIdx/tabIdx는 함수: 다운로드 시엔 새 인덱스를 만들며(side-effect), 미리보기 시엔 기존 인덱스를 조회만 함.
-function renderEntryHtml(e, keyIdx, tabIdx, imgIdx) {
-  const msg = esc(e.message).replace(/\n/g,'<br>');
+function renderEntryHtml(e, keyIdx, tabIdx, imgIdx, idx) {
+  // 검색 하이라이트는 라이브 미리보기에서만 적용한다 (imgIdx가 있으면 다운로드/정적 파일 생성 경로).
+  const isDownload = !!imgIdx;
+  const query = isDownload ? '' : searchState.preview.query;
+  const isCurrentMatch = !isDownload && isCurrentSearchMatch('preview', idx);
+  const nameHtml = highlightMatchesInText(esc(e.name), query, isCurrentMatch);
+  const msg = highlightMatchesInText(esc(e.message), query, isCurrentMatch).replace(/\n/g,'<br>');
   const tIdx = tabIdx(e.tab);
 
   if (e.tab === 'other') {
-    return `<div class="entry entry-inline" style="background:var(--tbg${tIdx}, var(--card))"><span class="speaker-inline"><span class="speaker-other">${esc(e.name)}</span><span class="sep"> : </span><span class="body-inline">${msg}</span></span></div>`;
+    return `<div class="entry entry-inline" style="background:var(--tbg${tIdx}, var(--card))"><span class="speaker-inline"><span class="speaker-other">${nameHtml}</span><span class="sep"> : </span><span class="body-inline">${msg}</span></span></div>`;
   }
   if (e.name === 'system') {
-    return `<div class="entry entry-dice" style="background:var(--tbg${tIdx}, transparent)"><span class="dice-name">${esc(e.name)}</span><span class="dice-body" style="color:${e.color}">${msg}</span></div>`;
+    return `<div class="entry entry-dice" style="background:var(--tbg${tIdx}, transparent)"><span class="dice-name">${nameHtml}</span><span class="dice-body" style="color:${e.color}">${msg}</span></div>`;
   }
   const kIdx = keyIdx(e.key);
   const badge = `<span class="badge">${esc(e.tab)}</span>`;
@@ -1794,10 +1918,10 @@ function renderEntryHtml(e, keyIdx, tabIdx, imgIdx) {
   const grade = getDiceGrade(e.message);
   if (grade !== null) {
     const diceColor = DICE_COLOR[grade] || 'var(--text)';
-    return `<div class="entry entry-dice" style="background:var(--tbg${tIdx}, transparent)"><span class="dice-name">${esc(e.name)}</span><span class="dice-body" style="color:${diceColor}">${msg}</span></div>`;
+    return `<div class="entry entry-dice" style="background:var(--tbg${tIdx}, transparent)"><span class="dice-name">${nameHtml}</span><span class="dice-body" style="color:${diceColor}">${msg}</span></div>`;
   }
 
-  return `<div class="entry" style="background:var(--tbg${tIdx}, var(--card))"><span class="entry-img-slot">${imgTag}</span><div class="entry-content"><div class="entry-head"><span class="speaker" style="color:var(--ck${kIdx}, ${e.color})" data-key="${kIdx}">${esc(e.name)}</span>${badge}${timeTag}</div><div class="entry-body">${msg}</div></div></div>`;
+  return `<div class="entry" style="background:var(--tbg${tIdx}, var(--card))"><span class="entry-img-slot">${imgTag}</span><div class="entry-content"><div class="entry-head"><span class="speaker" style="color:var(--ck${kIdx}, ${e.color})" data-key="${kIdx}">${nameHtml}</span>${badge}${timeTag}</div><div class="entry-body">${msg}</div></div></div>`;
 }
 
 // 미리보기/다운로드 공통 CSS. rootSelector는 다운로드(정적 문서)면 ':root', Shadow DOM 미리보기면 ':host'.
@@ -1823,6 +1947,8 @@ body::-webkit-scrollbar-thumb:hover,.sp-root::-webkit-scrollbar-thumb:hover{back
 .wrap{max-width:720px;margin:0 auto;padding:24px 16px}
 h1{font-size:20px;font-weight:700;color:var(--sub);margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid var(--border)}
 .entry{border:1px solid var(--border);border-radius:7px;padding:11px 14px;margin-bottom:9px;display:flex;gap:10px;align-items:flex-start;box-sizing:border-box}
+mark.search-mark{background:#f5a623;color:#1a1a1a;border-radius:2px;padding:0 1px}
+mark.search-mark-current{background:#ff7a1a;color:#fff}
 .entry-inline{padding:6px 14px 6px 28px;overflow:hidden}
 .entry-img-slot{display:contents}
 .entry-img{width:44px;height:44px;border-radius:4px;object-fit:cover;object-position:50% 20%;background-size:cover;background-position:50% 20%;background-repeat:no-repeat;flex-shrink:0;border:1px solid var(--border);margin-top:1px}
